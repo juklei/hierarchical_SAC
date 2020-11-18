@@ -80,21 +80,24 @@ capture.output(cor(as.data.frame(cor_list))) %>%
 str(data)
 
 ## Add chain inits:
-inits <- list(list(sigma_obs = rep(1, data$nsite),
+inits <- list(list(rep_select = data$nrep/2,
+                   sigma_obs = rep(1, data$nsite),
                    sigma_gdiv = 8, g_icpt = 37, g_dbh = 1, 
                    g_perc = 6, g_perc2 = -1.5,
                    g_2tsp = 1, g_3tsp = 1, g_4tsp = 1,
                    sigma_bdiv = 0.9, b_icpt = 4, b_dbh = -0.3, 
                    b_perc = 0.5, b_perc2 = -0.25,
                    b_2tsp = 1, b_3tsp = 1, b_4tsp = 1),
-              list(sigma_obs = rep(1, data$nsite),
+              list(rep_select = data$nrep/2,
+                   sigma_obs = rep(1, data$nsite),
                    sigma_gdiv = 6, g_icpt = 33, g_dbh = -2, 
                    g_perc = 0, g_perc2 = -4,
                    g_2tsp = -1, g_3tsp = -1, g_4tsp = -1,
                    sigma_bdiv = 0.6, b_icpt = 3, b_dbh = -0.8, 
                    b_perc = 1.5, b_perc2 = -0.5,
                    b_2tsp = -1, b_3tsp = -1, b_4tsp = -1),
-              list(sigma_obs = rep(1, data$nsite),
+              list(rep_select = data$nrep/2,
+                   sigma_obs = rep(1, data$nsite),
                    sigma_gdiv = 11, g_icpt = 41, g_dbh = 4, 
                    g_perc = 10, g_perc2 = 0.1,
                    g_2tsp = 0, g_3tsp = 0, g_4tsp = 0,
@@ -109,7 +112,7 @@ m.tsp <- "scripts/JAGS/hsac_tsp_number.R"
 
 start <- Sys.time()
 
-n.adapt <- 5000; n.iter <- 5000; samples <- 2500; n.thin <- 5
+n.adapt <- 1000; n.iter <- 1000; samples <- 1000; n.thin <- 2
 
 ## 5. Run m.raw ----------------------------------------------------------------
 
@@ -205,7 +208,7 @@ parJagsModel(cl, "hsac", m.perc, data, inits, 3, n.adapt)
 parUpdate(cl = cl, object = "hsac", n.iter = n.iter)
 
 zc <- parCodaSamples(cl = cl, model = "hsac",
-                     variable.names = c("sigma_obs", 
+                     variable.names = c("sigma_obs",
                                         "sigma_gdiv",
                                         "g_icpt", "g_perc", "g_perc2", "g_dbh",
                                         "sigma_bdiv",

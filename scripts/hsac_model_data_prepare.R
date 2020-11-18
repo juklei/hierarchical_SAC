@@ -1,14 +1,7 @@
-## Tree level data is created together with species accumluation data per plot
+## Create species accumulation data:
 ##
-## The species accumulation part:
-## We want to shuffle the order of the trees on each plot n times.
-## For each shuffle we virtually put the species seen on the first tree
-## on all the following trees for that shuffle round and by plot
-## For that I create a function which does n shuffelings per plot and apply it 
-## then to a list.
-##
-## First edit: 20190605
-## Last edit: 20190612
+## First edit: 20201116
+## Last edit: 20201116
 ##
 ## Author: Julian Klein
 
@@ -21,6 +14,11 @@ library(data.table)
 ## 2. Load and explore data ----------------------------------------------------
 
 l_obs <- as.data.table(read.csv("data/Data_lavar_Almunge15_March_2019.csv"))
+
+## Remove plot_119, because spruce plantation:
+l_obs <- l_obs[l_obs$Plot.no. != 119, ]
+
+
 
 ## 3. Create list of matrices per plot that goes into the shuffeling ----------- 
 
@@ -45,9 +43,15 @@ l_obs$P..adscendens.tenella <- ifelse(rowSums(T1, na.rm = TRUE) > 0, 1, NA)
 ## Reduce data set to response columns:
 lo_red <- l_obs[, c(1, 7, 12:24, 26:105, 107, 109:127, 129:132)]
 
-## Sum species obs to total:
+## Sum species obs to total per tree and lichen species:
 lo_red <- lo_red[, lapply(.SD, sum, na.rm = TRUE), by = c("plot", "Tree.no")]
-lo_red[, 3:ncol(lo_red)][lo_red[, 3:ncol(lo_red)] > 1] <- 1 
+
+
+
+
+specaccum(lo_red[lo_red$plot == "plot_1", 3:length(lo_red)], "random")
+
+
 ## lo_red will be used below at 5. for species accumulation curves
 
 ## 4. Create the data set which is needed to fit the tree level richness models
@@ -73,7 +77,7 @@ lo_list <- lapply(lo_list, function(x) as.matrix(x[, -1]))
 lo_list <- lapply(lo_list, function(x) x[, colSums(x) != 0])
 
 ## How many shuffelings?
-S <- 20
+S <- 100
 
 ## Define the function:
 sac_create <- function(x) {

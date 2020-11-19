@@ -26,17 +26,18 @@ model{
       ## Beta diversity:
       bdiv[k,s] ~ dgamma(shape[k], rate[k])
     }
-    shape[k] <- max(0.00001, mu_bdiv[k]^2/sigma_bdiv[k]^2)
-    rate[k] <- max(0.00001, mu_bdiv[k]/sigma_bdiv[k]^2)
+    shape[k] <- mu_bdiv[k]^2/sigma_bdiv^2
+    rate[k] <- mu_bdiv[k]/sigma_bdiv^2
   }
   
   ## Priors:
   
   for(k in 1:nrep){
     lambda_gdiv[k] ~ dgamma(0.001, 0.001)
-    mu_bdiv[k] ~ dunif(1.000001, 10)
-    sigma_bdiv[k] ~ dgamma(0.001, 0.001)
+    log(mu_bdiv[k]) <- mu_bdiv_log[k] 
+    mu_bdiv_log[k] ~ dgamma(0.001, 0.001)
   }
+  sigma_bdiv ~ dgamma(0.001, 0.001)
   
   ## Posterior calculations:
   
@@ -49,7 +50,10 @@ model{
     for(k in 1:nrep){
       gdiv_diff[k,s] <- gdiv[k,s] - gdiv_mean[s]
       bdiv_diff[k,s] <- bdiv[k,s] - bdiv_mean[s]
-  }}
+    }
+    gdiv_diff_sd[s] <- sd(gdiv_diff[,s])
+    bdiv_diff_sd[s] <- sd(gdiv_diff[,s])
+  }
   
   ## Alpha diversity:
   for(k in 1:nrep){

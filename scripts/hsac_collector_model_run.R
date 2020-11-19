@@ -22,6 +22,8 @@ library(dclone)
 
 ## 2. Define or source functions used in this script ---------------------------
 
+source("scripts/")
+
 dir.create("results")
 dir.create("figures")
 
@@ -30,11 +32,15 @@ options(max.print = 10E5)
 
 ## Backscale function
 backscale <- function(pred_data, model_input_data) {
-  
   pred_data*attr(model_input_data, 'scaled:scale') + 
     attr(model_input_data, 'scaled:center')
-  
 }
+
+## Calculate median and 95% CI for data.table:
+quant_calc <- function(x) as.list(quantile(x, probs = c(0.025, 0.5, 0.975)))
+
+## Standard error calculation:
+std.error <- function(x)sd(x)/sqrt(length(x))
 
 ## 3. Load and explore data ----------------------------------------------------
 
@@ -47,15 +53,10 @@ str(sad_tree)
 
 ## 4. Prepare data and inits ---------------------------------------------------
 
-## Calculate the number of trees by site:
-ntree <- apply(sad, 3, function(x) sum(!is.na(x[,2])))
-
-sad <- sad[,1:5,]
-
 ## Create model data set:
 data <- list(nrep = dim(sad)[2],
              nsite = dim(sad)[3],
-             ntree = ntree,
+             ntree = apply(sad, 3, function(x) sum(!is.na(x[,2]))), 
              obs_all = sad,
              obs_red = sad[, sample(1:dim(sad)[2], 1), ],
              u = 1, ## Evaluation unit of alpha diversity
@@ -85,7 +86,7 @@ m.tsp <- "scripts/JAGS/hsac_collector_tsp_number.R"
 
 start <- Sys.time()
 
-n.adapt <- 5000; n.iter <- 10000; samples <- 5000; n.thin <- 10
+n.adapt <- 5000; n.iter <- 15000; samples <- 15000; n.thin <- 15
 
 ## 5a. Run m.raw for model testing and comparison ------------------------------
 
@@ -93,18 +94,18 @@ n.adapt <- 5000; n.iter <- 10000; samples <- 5000; n.thin <- 10
 inits <- list(list(gdiv = matrix(60,data$nrep, data$nsite), 
                    bdiv = matrix(6,data$nrep, data$nsite),
                    lambda_gdiv = rep(37, data$nrep),
-                   mu_bdiv = rep(4, data$nrep),
-                   sigma_bdiv = rep(1.1, data$nrep)),
+                   mu_bdiv_log = rep(4, data$nrep),
+                   sigma_bdiv = 1.1),
               list(gdiv = matrix(40,data$nrep, data$nsite), 
                    bdiv = matrix(2.1,data$nrep, data$nsite),
                    lambda_gdiv = rep(33, data$nrep),
-                   mu_bdiv = rep(5, data$nrep),
-                   sigma_bdiv = rep(3, data$nrep)),
+                   mu_bdiv_log = rep(5, data$nrep),
+                   sigma_bdiv = 3),
               list(gdiv = matrix(80,data$nrep, data$nsite), 
-                   bdiv = matrix(9,data$nrep, data$nsite),
+                   bdiv_log = matrix(9,data$nrep, data$nsite),
                    lambda_gdiv = rep(15, data$nrep),
-                   mu_bdiv = rep(3.1, data$nrep),
-                   sigma_bdiv = rep(2, data$nrep)))
+                   mu_bdiv_log = rep(3.1, data$nrep),
+                   sigma_bdiv = 2))
 
 ## Parallel computing:
 cl <- makePSOCKcluster(3) ## On 3 cores
@@ -147,31 +148,29 @@ zc_val <- parCodaSamples(cl = cl, model = "hsac",
                          thin = n.thin)
 zc_val_comb <- combine.mcmc(zc_val)
 
-pred <- as.data.table(melt(as.data.table(zc_val_comb), 
+sim <- as.data.table(melt(as.data.table(zc_val_comb), 
                            measure.vars = dimnames(zc_val_comb)[[2]]))
-pred$variable <- gsub(",[[:digit:]]+,", ",", pred$variable)
-quant_calc <- function(x) as.list(quantile(x, probs = c(0.025, 0.5, 0.975)))
-pred <- pred[, c("lower", "median", "upper") := quant_calc(value), by = "variable"]
-pred <- unique(pred[ , -2])
-pred$tree <- unlist(lapply(data$ntree, function(x) rep(1:x)))
-pred$site <- unlist(lapply(1:data$nsite, function(x) rep(x, ntree[x])))
-pred <- as.data.frame(pred)
+sim$variable <- gsub(",[[:digit:]]+,", ",", sim$variable)
+sim <- sim[, c("lower", "median", "upper") := quant_calc(value), by = "variable"]
+sim <- unique(sim[ , -2])
+sim$ntree <- unlist(lapply(data$ntree, function(x) rep(1:x)))
+sim$site <- unlist(lapply(1:data$nsite, function(x) rep(x, data$ntree[x])))
+sim <- as.data.frame(sim)
 
 dev.off()
 
 pdf("figures/hsac_collector_sim_vs_obs.pdf")
 par(mfrow = c(3, 1))
 for(i in 1:data$nsite) {
-  x = c(0, pred[pred$site == i, "tree"])
-  y = pred[pred$site == i, ]
-  plot(x, c(0, y$upper),
-       xlab = "tree number", ylab = "accumulation",
+  x = c(0, sim[sim$site == i, "ntree"])
+  y = sim[sim$site == i, ]
+  plot(x, c(0, y$upper), xlab = "tree number", ylab = "species accumulation", 
        lty = "dashed", col = "red", typ = "l")
   lines(x, c(0, y$median), col = "red", lwd = 4)
   lines(x, c(0, y$lower), lty = "dashed", col = "red")
   ## Real data:
-  boxplot(accumulation ~ tree, 
-          data.frame("tree" = as.factor(rep(1:(length(x)-1), dim(sad)[2])),
+  boxplot(accumulation ~ ntree, 
+          data.frame("ntree" = as.factor(rep(1:(length(x)-1), dim(sad)[2])),
                      "accumulation" = na.omit(as.vector(sad[,,i]))),
           add = TRUE)
 }
@@ -181,20 +180,16 @@ dev.off()
 ## and does that vary with sample size (number of trees)?
 
 zc_diff <- parCodaSamples(cl = cl, model = "hsac",
-                          variable.names = c("gdiv_diff", "bdiv_diff"),
+                          variable.names = c("gdiv_diff_sd", "bdiv_diff_sd"),
                           n.iter = samples,
                           thin = n.thin)
-zc_diff_comb <- combine.mcmc(zc_diff)
+diff <- as.data.frame(summary(zc_diff)$quantile)
+diff$ntree <- data$ntree
+diff$div_metric <- c("bdiv", "gdiv")
+diff$div_metric <- sort(diff$div_metric)
 
-## Create array with dim = mcmc_sample*replication*plot*diversity_metric:
-diff <- array(zc_diff_comb, c(dim(zc_diff_comb)[1], dim(sad)[2:3], 2))
-diff <- apply(diff, c(3,4), sd)
-
-## Differences for bdiv:
-plot(data$ntree, diff[,1])
-
-## Differences for gdiv:
-plot(data$ntree, diff[,2])
+## Export for graphing:
+write.csv(diff, "clean/hsac_collector_raw_replication_diff.csv")
 
 ## Compare Gamma diversity from hsac_collector model with estimates from 
 ## vegan::specpool():
@@ -203,9 +198,13 @@ zc_comp <- parCodaSamples(cl = cl, model = "hsac",
                           variable.names = c("gdiv_mean", "gdiv_se"),
                           n.iter = samples,
                           thin = n.thin)
+comp <- as.data.frame(summary(zc_comp)$quantile)
+comp$ntree <- data$ntree
+comp$summary_stat <- c("gdiv_mean", "gdiv_se")
+comp$summary_stat <- sort(comp$summary_stat)
 
-
-
+## Export for graphing:
+write.csv(comp, "clean/hsac_collector_raw_gdiv_comp.csv")
 
 ## 5b. Use m.raw to export diversity metrics for all sites ---------------------
 
@@ -213,12 +212,20 @@ zc_pred <- parCodaSamples(cl = cl, model = "hsac",
                           variable.names = c("adiv", "bdiv", "gdiv"),
                           n.iter = samples,
                           thin = n.thin)
+zc_pred_comb <- combine.mcmc(zc_pred)
 
-site_estimates <- zj_pred
-site_estimates$dec <- sad_tree$dec
-site_estimates$spruce <- sad_tree$spruce
-site_estimates$pine <- sad_tree$pine
-save(site_estimates, file = "clean/site_estimates.rda")
+pred <- as.data.table(melt(as.data.table(zc_pred_comb), 
+                           measure.vars = dimnames(zc_pred_comb)[[2]]))
+pred$variable <- gsub("[[:digit:]]+,", "", pred$variable)
+pred[, c("lower", "median", "upper") := quant_calc(value), by = "variable"]
+pred[, c("mean", "SE") := list(mean(value), std.error(value)), by = "variable"]
+pred <- as.data.frame(unique(pred[ , -2]))
+pred$site <- 1:data$nsite
+pred$div_metric <- c("adiv", "bdiv", "gdiv")
+pred$div_metric <- sort(pred$div_metric)
+
+## Export for graphing:
+write.csv(pred, "clean/hsac_collector_raw_site_pred.csv")
 
 stopCluster(cl)
 
@@ -226,61 +233,87 @@ stopCluster(cl)
 
 inits <- list(list(gdiv = rep(60, data$nsite), bdiv = rep(6, data$nsite),
                    g_icpt = log(37), g_dbh = 1, g_perc = 6, g_perc2 = -1.5,
-                   sigma_bdiv = 0.9, 
+                   sigma_bdiv = 2, 
                    b_icpt = 4, b_dbh = -0.3, b_perc = 0.5, b_perc2 = -0.25),
               list(gdiv = rep(40, data$nsite), bdiv = rep(2, data$nsite),
                    g_icpt = log(33), g_dbh = -2, g_perc = 0, g_perc2 = -4,
-                   sigma_bdiv = 0.6, 
+                   sigma_bdiv = 5, 
                    b_icpt = 3, b_dbh = -0.8, b_perc = 1.5, b_perc2 = -0.5),
               list(gdiv = rep(20, data$nsite), bdiv = rep(3, data$nsite),
                    g_icpt = log(41), g_dbh = 4, g_perc = 10, g_perc2 = 0.1,
                    sigma_bdiv = 1.2, 
                    b_icpt = 5, b_dbh = 0.2, b_perc = 0, b_perc2 = 0.1))
 
+perc_pred_export <- vector("list", 3)
+names(perc_pred_export) <- c("dec", "spruce", "pine")
+perc_max_export <- vector("list", 3)
+names(perc_max_export) <- c("dec", "spruce", "pine")
+
 for(i in c("dec", "spruce", "pine")){
+  
+  data$perc <- unlist(data[i])
+  data$perc_pred <- seq(min(data$perc), max(data$perc), 0.05)
 
-data$perc <- unlist(data[i])
-data$perc_pred <- seq(min(data$perc), max(data$perc), 0.05)
+  cl <- makePSOCKcluster(3) 
+  parJagsModel(cl, "hsac", m.perc, data, inits, 3, n.adapt)
+  parUpdate(cl = cl, object = "hsac", n.iter = n.iter)
 
-cl <- makePSOCKcluster(3) 
-parJagsModel(cl, "hsac", m.perc, data, inits, 3, n.adapt)
-parUpdate(cl = cl, object = "hsac", n.iter = n.iter)
+  zc <- parCodaSamples(cl = cl, model = "hsac",
+                       variable.names = c("g_icpt", "g_dbh",
+                                          "g_perc", "g_perc2", 
+                                          "sigma_bdiv", "b_icpt", "b_dbh",
+                                          "b_perc", "b_perc2"),
+                       n.iter = samples, thin = n.thin)
 
-zc <- parCodaSamples(cl = cl, model = "hsac",
-                     variable.names = c("g_icpt", "g_perc", "g_perc2", "g_dbh",
-                                        "sigma_bdiv",
-                                        "b_icpt", "b_perc", "b_perc2", "b_dbh"),
-                     n.iter = samples, thin = n.thin)
+  capture.output(summary(zc), HPDinterval(zc, prob = 0.95)) %>% 
+    write(., paste0("results/parameters_hsac_collector_", i, ".txt"))
 
-capture.output(summary(zc), HPDinterval(zc, prob = 0.95)) %>% 
-  write(., paste0("results/parameters_hsac_collector_", i, ".txt"))
+  pdf(paste0("figures/hsac_collector_", i, ".pdf"))
+  plot(zc); gelman.plot(zc) 
+  dev.off()
 
-pdf(paste0("figures/hsac_collector_", i, ".pdf"))
-plot(zc); gelman.plot(zc) 
-dev.off()
+  capture.output(raftery.diag(zc), heidel.diag(zc)) %>% 
+    write(., paste0("results/diagnostics_hsac_collector_", i, ".txt"))
 
-capture.output(raftery.diag(zc), heidel.diag(zc)) %>% 
-  write(., paste0("results/diagnostics_hsac_collector_", i, ".txt"))
+  ## Export predicted diversity metrics:
+  zc_pred_perc <- parCodaSamples(cl = cl, model = "hsac",
+                                 variable.names = c("adiv_pred", 
+                                                    "bdiv_pred",
+                                                    "gdiv_pred"),
+                                 n.iter = samples, thin = n.thin)
 
-zj_pred <- parCodaSamples(cl = cl, model = "hsac",
-                          variable.names = c("adiv_pred", "bdiv_pred", "gdiv_pred", 
-                                             "b_perc_max", "g_perc_max"),
-                          n.iter = samples, thin = n.thin)
+  pred_perc <- as.data.frame(summary(zc_pred_perc)$quantile)
+  pred_perc$perc_pred <- backscale(data$perc_pred, data[[i]])
+  pred_perc$div_metric <- c("adiv", "bdiv", "gdiv")
+  pred_perc$div_metric <- sort(pred_perc$div_metric)
+  
+  perc_pred_export[[i]] <- pred_perc
 
-ld <- length(data$perc_pred)
-export <- list("adiv" = zj_pred[, 1:ld],
-               "bdiv" = zj_pred[, (ld+2):(2*ld+1)],
-               "gdiv" = zj_pred[, (2*ld+3):(3*ld+2)],
-               "b_max" = backscale(unlist(zj_pred[, "b_perc_max"]), data[[i]]),
-               "g_max" = backscale(unlist(zj_pred[, "g_perc_max"]), data[[i]]),
-               "pred" = backscale(data$perc_pred, data[[i]]))
-names(export) <- paste0(names(export), "_", i)
+  ## Export maximum percentage values for the quadratic curves of gdiv and bdiv:
+  zc_pp_max <- parCodaSamples(cl = cl, model = "hsac",
+                              variable.names = c("b_perc_max", "g_perc_max"),
+                              n.iter = samples, thin = n.thin)
 
-save(export, file = paste0("clean/export_collector_", i, ".rda"))
+  pp_max <- data.frame("b_max" = backscale(unlist(zc_pp_max[, "b_perc_max"]), 
+                                           data[[i]]),
+                       "g_max" = backscale(unlist(zc_pp_max[, "g_perc_max"]), 
+                                           data[[i]]))
+  
+  perc_max_export[[i]] <- pp_max
 
-stopCluster(cl)
+  stopCluster(cl)
 
 }
+
+## Export for graphing:
+pred_perc <- reshape2::melt(perc_pred_export,
+                            measure.vars = colnames(perc_pred_export))
+write.csv(pred_perc, paste0("clean/hsac_collector_pred_perc.csv"))
+
+## Export for graphing:
+pp_max <- reshape2::melt(perc_max_export, 
+                         measure.vars = colnames(perc_max_export))
+write.csv(pp_max, "clean/hsac_collector_max_perc.csv")
 
 ## 7. Run m.tsp ----------------------------------------------------------------
 
@@ -324,33 +357,40 @@ dev.off()
 capture.output(raftery.diag(zc), heidel.diag(zc)) %>% 
   write(., "results/diagnostics_hsac_collector_tsp.txt")
 
-zj_pred <- parCodaSamples(cl = cl, model = "hsac",
-                          variable.names = c("adiv_1tsp", "adiv_2tsp", "adiv_3tsp", "adiv_4tsp", 
-                                             "adiv_diff_21", "adiv_diff_31", 
-                                             "adiv_diff_41", "adiv_diff_32",
-                                             "adiv_diff_42", "adiv_diff_43",
-                                             "bdiv_1tsp", "bdiv_2tsp", "bdiv_3tsp", "bdiv_4tsp", 
-                                             "bdiv_diff_21", "bdiv_diff_31", 
-                                             "bdiv_diff_41", "bdiv_diff_32",
-                                             "bdiv_diff_42", "bdiv_diff_43",
-                                             "gdiv_1tsp", "gdiv_2tsp", "gdiv_3tsp", "gdiv_4tsp", 
-                                             "gdiv_diff_21", "gdiv_diff_31", 
-                                             "gdiv_diff_41", "gdiv_diff_32",
-                                             "gdiv_diff_42", "gdiv_diff_43"),
-                          n.iter = samples, thin = n.thin)
+zc_pred_tsp <- parCodaSamples(cl = cl, model = "hsac",
+                              variable.names = c("adiv_1tsp", "adiv_2tsp", 
+                                                 "adiv_3tsp", "adiv_4tsp",
+                                                 "bdiv_1tsp", "bdiv_2tsp", 
+                                                 "bdiv_3tsp", "bdiv_4tsp",
+                                                 "gdiv_1tsp", "gdiv_2tsp", 
+                                                 "gdiv_3tsp", "gdiv_4tsp"),
+                              n.iter = samples, thin = n.thin)
+
+pred_tsp <- as.data.frame(summary(zc_pred_tsp)$quantiles)
+pred_tsp$div_metric <- c("adiv", "bdiv", "gdiv")
+pred_tsp$div_metric <- sort(pred_tsp$div_metric)
+pred_tsp$nr_tsp <- rep(1:4, 3)
+
+write.csv(pred_tsp, paste0("clean/hsac_collector_pred_tsp.csv"))
+
+zc_tsp_diff <- parCodaSamples(cl = cl, model = "hsac",
+                              variable.names = c("adiv_diff_21", "adiv_diff_31", 
+                                                 "adiv_diff_41", "adiv_diff_32",
+                                                 "adiv_diff_42", "adiv_diff_43",
+                                                 "bdiv_diff_21", "bdiv_diff_31", 
+                                                 "bdiv_diff_41", "bdiv_diff_32",
+                                                 "bdiv_diff_42", "bdiv_diff_43",
+                                                 "gdiv_diff_21", "gdiv_diff_31", 
+                                                 "gdiv_diff_41", "gdiv_diff_32",
+                                                 "gdiv_diff_42", "gdiv_diff_43"),
+                              n.iter = samples, thin = n.thin)
 
 ## Extract probability that difference between nr_tsp is bigger than 0:
-tsp_diff <- combine.mcmc(zj_pred)[, c(5:10, 15:20, 25:30)]
-ANOVA_prob <- summary(tsp_diff)$quantiles[, c("50%", "2.5%", "97.5%")]
+ANOVA_prob <- summary(zc_tsp_diff)$quantiles
 ANOVA_prob <- cbind(ANOVA_prob, 
                     "ecdf" = sapply(as.data.frame(tsp_diff), 
                                     function(x) 1-ecdf(x)(0))) 
-write.csv(ANOVA_prob, "results/ANOVA_results_hsac_collector.csv")
-
-export <- zj_pred[, c("adiv_1tsp", "adiv_2tsp", "adiv_3tsp", "adiv_4tsp",
-                      "bdiv_1tsp", "bdiv_2tsp", "bdiv_3tsp", "bdiv_4tsp",
-                      "gdiv_1tsp", "gdiv_2tsp", "gdiv_3tsp", "gdiv_4tsp")]
-save(export, file = "clean/export_tsp_collector.rda")
+write.csv(ANOVA_prob, "results/hsac_collector_tsp_ANOVA.csv")
 
 stopCluster(cl)
 

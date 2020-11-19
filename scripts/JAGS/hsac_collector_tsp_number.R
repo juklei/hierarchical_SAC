@@ -12,7 +12,7 @@ model{
   ## Observation model:
   for(s in 1:nsite){
     for(i in 1:ntree[s]){
-      obs[i,s] ~ dpois(lambda_obs[i,s])
+      obs_red[i,s] ~ dpois(lambda_obs[i,s])
       lambda_obs[i,s] <- (gdiv[s]*i)/(bdiv[s]*u - u + i)
   }}
   
@@ -29,25 +29,25 @@ model{
     bdiv[s] ~ dgamma(shape[s], rate[s])
     shape[s] <- max(0.00001, mu_bdiv[s]^2/sigma_bdiv^2)
     rate[s] <- max(0.00001, mu_bdiv[s]/sigma_bdiv^2)
-    mu_bdiv[s] <- b_icpt +                  
-                  b_2tsp*tsp_2[s] + 
-                  b_3tsp*tsp_3[s] +
-                  b_4tsp*tsp_4[s] + 
-                  b_dbh*dbh[s]
+    log(mu_bdiv[s]) <- b_icpt +                  
+                       b_2tsp*tsp_2[s] + 
+                       b_3tsp*tsp_3[s] +
+                       b_4tsp*tsp_4[s] + 
+                       b_dbh*dbh[s]
   }
   
   ## Priors:
   
   ## Process model:
   ## Gamma diversity:
-  g_icpt ~ dnorm(0, 0.001)
+  g_icpt ~ dgamma(0.001, 0.001)
   g_2tsp ~ dnorm(0, 0.001)
   g_3tsp ~ dnorm(0, 0.001)
   g_4tsp ~ dnorm(0, 0.001)
   g_dbh ~ dnorm(0, 0.001)
   ## Beta diversity:
   sigma_bdiv ~ dgamma(0.001, 0.001)
-  b_icpt ~ dunif(1.000001, 10)
+  b_icpt ~ dgamma(0.001, 0.001)
   b_2tsp ~ dnorm(0, 0.001)
   b_3tsp ~ dnorm(0, 0.001)
   b_4tsp ~ dnorm(0, 0.001)
@@ -67,10 +67,10 @@ model{
   gdiv_diff_42 <- gdiv_4tsp - gdiv_2tsp
   gdiv_diff_43 <- gdiv_4tsp - gdiv_3tsp
   ## Beta diversity:
-  bdiv_1tsp <- b_icpt
-  bdiv_2tsp <- b_icpt + b_2tsp
-  bdiv_3tsp <- b_icpt + b_3tsp
-  bdiv_4tsp <- b_icpt + b_4tsp
+  log(bdiv_1tsp) <- b_icpt
+  log(bdiv_2tsp) <- b_icpt + b_2tsp
+  log(bdiv_3tsp) <- b_icpt + b_3tsp
+  log(bdiv_4tsp) <- b_icpt + b_4tsp
   bdiv_diff_21 <- bdiv_2tsp - bdiv_1tsp
   bdiv_diff_31 <- bdiv_3tsp - bdiv_1tsp
   bdiv_diff_41 <- bdiv_4tsp - bdiv_1tsp

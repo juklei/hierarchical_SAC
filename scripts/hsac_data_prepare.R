@@ -1,7 +1,7 @@
 ## Create species accumulation data:
 ##
 ## First edit: 20201116
-## Last edit: 20201116
+## Last edit: 20201119
 ##
 ## Author: Julian Klein
 
@@ -10,6 +10,7 @@
 rm(list = ls())
 
 library(data.table)
+library(vegan)
 
 ## 2. Load and explore data ----------------------------------------------------
 
@@ -17,8 +18,6 @@ l_obs <- as.data.table(read.csv("data/Data_lavar_Almunge15_March_2019.csv"))
 
 ## Remove plot_119, because spruce plantation:
 l_obs <- l_obs[l_obs$Plot.no. != 119, ]
-
-
 
 ## 3. Create list of matrices per plot that goes into the shuffeling ----------- 
 
@@ -45,24 +44,13 @@ lo_red <- l_obs[, c(1, 7, 12:24, 26:105, 107, 109:127, 129:132)]
 
 ## Sum species obs to total per tree and lichen species:
 lo_red <- lo_red[, lapply(.SD, sum, na.rm = TRUE), by = c("plot", "Tree.no")]
+lo_red[, 3:ncol(lo_red)][lo_red[, 3:ncol(lo_red)] > 1] <- 1
 
+## 4. Calculate estimated gamma diversity for all plots based on 
+##    vegan::specpool():
 
-
-
-specaccum(lo_red[lo_red$plot == "plot_1", 3:length(lo_red)], "random")
-
-
-## lo_red will be used below at 5. for species accumulation curves
-
-## 4. Create the data set which is needed to fit the tree level richness models
-##    and add tree data again from above
-
-head(lo_red)
-
-ltr <- lo_red[, list("richness" = sum(as.vector(.SD))), 
-              by = c("plot", "Tree.no")]
-
-ltr_tree <- merge(ltr, unique(l_obs[, c(1, 7:9)]), by = c("plot", "Tree.no"))
+gamma_est <- lo_red[, specpool(.SD), by = "plot"]
+write.csv(gamma_est, "clean/specpool_gamma.csv", row.names = FALSE)
 
 ## 5. Create the data set which is needed to fit the accumultation curve and 
 ##    produce forest data per plot level with the according order
@@ -103,15 +91,12 @@ plot_order <- names(l_sac)
 sad <- array(unlist(l_sac), dim = c(max(lengths(l_sac)/S), S, length(l_sac)))
 
 ## Make a data frame with the tree data with the same plot order as "sad":
-
 sad_tree <- as.data.table(l_obs[, c(1, 8:9)])
 sad_tree <- sad_tree[, list("pine" = sum(Tree.species == "Ps")/nrow(.SD),
                             "spruce" = sum(Tree.species == "Pa")/nrow(.SD),
                             "dbh" = mean(Tree.diameter.130.cm.above.ground,
                                          na.rm = TRUE),
-                            "nr_tsp" = length(unique(Tree.species)),
-                            "nr_dec" = sum(!unique(Tree.species) %in% c("Pa", 
-                                                                        "Ps"))),
+                            "nr_tsp" = length(unique(Tree.species))),
                      by = "plot"]
 sad_tree$dec <- 1-(sad_tree$pine + sad_tree$spruce)
 
@@ -123,7 +108,6 @@ all(sad_tree$plot == names(l_sac))
 dir.create("clean")
 
 ## Export:
-save(ltr_tree, file = "clean/ltr_with_tree_data.rda")
 save(sad, file = "clean/species_accumulation_data.rda")
 save(sad_tree, file = "clean/sad_tree_part.rda")
 

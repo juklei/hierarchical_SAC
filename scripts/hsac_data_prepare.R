@@ -50,7 +50,6 @@ lo_red[, 3:ncol(lo_red)][lo_red[, 3:ncol(lo_red)] > 1] <- 1
 ##    vegan::specpool():
 
 gamma_est <- lo_red[, specpool(.SD), by = "plot"]
-write.csv(gamma_est, "clean/specpool_gamma.csv", row.names = FALSE)
 
 ## 5. Create the data set which is needed to fit the accumultation curve and 
 ##    produce forest data per plot level with the according order
@@ -103,11 +102,12 @@ sad_tree$dec <- 1-(sad_tree$pine + sad_tree$spruce)
 ## Check if the order of l_sac and sad_tree are the same:
 all(sad_tree$plot == names(l_sac))
 
-## 6. Store the data sets used in the jags models here: ------------------------ 
+## 6. Store the data used in the jags models and in the figures script: --------
 
 dir.create("clean")
 
 ## Export:
+write.csv(gamma_est, "clean/specpool_gamma.csv", row.names = FALSE)
 save(sad, file = "clean/species_accumulation_data.rda")
 save(sad_tree, file = "clean/sad_tree_part.rda")
 

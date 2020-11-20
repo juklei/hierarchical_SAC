@@ -19,10 +19,12 @@ library(reshape2)
 library(data.table)
 library(parallel)
 library(dclone)
+library(data.table)
+library(vegan)
 
 ## 2. Define or source functions used in this script ---------------------------
 
-source("scripts/")
+source("scripts/hsac_data_prepare.r")
 
 dir.create("results")
 dir.create("figures")
@@ -144,8 +146,8 @@ capture.output(raftery.diag(zc), heidel.diag(zc)) %>%
 ## Produce SAC from fitted model and compare with raw accumulation data:
 zc_val <- parCodaSamples(cl = cl, model = "hsac",
                          variable.names = "sim_obs",
-                         n.iter = samples,
-                         thin = n.thin)
+                         n.iter = 3500,
+                         thin = 10)
 zc_val_comb <- combine.mcmc(zc_val)
 
 sim <- as.data.table(melt(as.data.table(zc_val_comb), 
@@ -221,6 +223,7 @@ pred[, c("lower", "median", "upper") := quant_calc(value), by = "variable"]
 pred[, c("mean", "SE") := list(mean(value), std.error(value)), by = "variable"]
 pred <- as.data.frame(unique(pred[ , -2]))
 pred$site <- 1:data$nsite
+pred <- cbind(pred, sad_tree[, c("dec", "spruce", "pine")])
 pred$div_metric <- c("adiv", "bdiv", "gdiv")
 pred$div_metric <- sort(pred$div_metric)
 
@@ -229,20 +232,20 @@ write.csv(pred, "clean/hsac_collector_raw_site_pred.csv")
 
 stopCluster(cl)
 
-## 6. Run m.dec ----------------------------------------------------------------
+## 6. Run m.perc ---------------------------------------------------------------
 
 inits <- list(list(gdiv = rep(60, data$nsite), bdiv = rep(6, data$nsite),
-                   g_icpt = log(37), g_dbh = 1, g_perc = 6, g_perc2 = -1.5,
-                   sigma_bdiv = 2, 
-                   b_icpt = 4, b_dbh = -0.3, b_perc = 0.5, b_perc2 = -0.25),
+                   g_icpt = 1, g_dbh = 1, g_perc = 1, g_perc2 = 1,
+                   sigma_bdiv = 1, 
+                   b_icpt = 1.1, b_dbh = 1, b_perc = 1, b_perc2 = 1),
               list(gdiv = rep(40, data$nsite), bdiv = rep(2, data$nsite),
-                   g_icpt = log(33), g_dbh = -2, g_perc = 0, g_perc2 = -4,
-                   sigma_bdiv = 5, 
-                   b_icpt = 3, b_dbh = -0.8, b_perc = 1.5, b_perc2 = -0.5),
+                   g_icpt = 3.5, g_dbh = 0, g_perc = 0, g_perc2 = -0.1,
+                   sigma_bdiv = 0.5, 
+                   b_icpt = 1.15, b_dbh = -0.1, b_perc = 0, b_perc2 = -0.15),
               list(gdiv = rep(20, data$nsite), bdiv = rep(3, data$nsite),
-                   g_icpt = log(41), g_dbh = 4, g_perc = 10, g_perc2 = 0.1,
-                   sigma_bdiv = 1.2, 
-                   b_icpt = 5, b_dbh = 0.2, b_perc = 0, b_perc2 = 0.1))
+                   g_icpt = 3.7, g_dbh = 0.15, g_perc = 0.25, g_perc2 = 0.01,
+                   sigma_bdiv = 1.5, 
+                   b_icpt = 1.5, b_dbh = 0.2, b_perc = 0.45, b_perc2 = 0.1))
 
 perc_pred_export <- vector("list", 3)
 names(perc_pred_export) <- c("dec", "spruce", "pine")
@@ -388,7 +391,7 @@ zc_tsp_diff <- parCodaSamples(cl = cl, model = "hsac",
 ## Extract probability that difference between nr_tsp is bigger than 0:
 ANOVA_prob <- summary(zc_tsp_diff)$quantiles
 ANOVA_prob <- cbind(ANOVA_prob, 
-                    "ecdf" = sapply(as.data.frame(tsp_diff), 
+                    "ecdf" = sapply(as.data.frame(combine.mcmc(zc_tsp_diff)), 
                                     function(x) 1-ecdf(x)(0))) 
 write.csv(ANOVA_prob, "results/hsac_collector_tsp_ANOVA.csv")
 

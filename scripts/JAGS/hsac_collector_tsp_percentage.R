@@ -26,8 +26,8 @@ model{
                            g_dbh*dbh[s]
     ## Beta diversity:
     bdiv[s] ~ dgamma(shape[s], rate[s])
-    shape[s] <- max(0.00001, mu_bdiv[s]^2/sigma_bdiv^2)
-    rate[s] <- max(0.00001, mu_bdiv[s]/sigma_bdiv^2)
+    shape[s] <- mu_bdiv[s]^2/sigma_bdiv^2
+    rate[s] <- mu_bdiv[s]/sigma_bdiv^2
     log(mu_bdiv[s]) <- b_icpt + b_perc*perc[s] + b_perc2*perc[s]^2 + b_dbh*dbh[s]
   }
   
@@ -36,15 +36,15 @@ model{
   ## Process model:
   ## Gamma diversity:
   g_icpt ~ dgamma(0.001, 0.001)
-  g_perc ~ dnorm(0, 0.001)
-  g_perc2 ~ dnorm(0, 0.001)
-  g_dbh ~ dnorm(0, 0.001)
+  g_perc ~ dnorm(0, 0.01)
+  g_perc2 ~ dnorm(0, 0.01)
+  g_dbh ~ dnorm(0, 0.01)
   ## Beta diversity:
   sigma_bdiv ~ dgamma(0.001, 0.001)
   b_icpt ~ dgamma(0.001, 0.001)
-  b_perc ~ dnorm(0, 0.001)
-  b_perc2 ~ dnorm(0, 0.001)
-  b_dbh ~ dnorm(0, 0.001) 
+  b_perc ~ dnorm(0, 0.01)
+  b_perc2 ~ dnorm(0, 0.01)
+  b_dbh ~ dnorm(0, 0.01) 
   
   ## Predictions:
 

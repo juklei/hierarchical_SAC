@@ -41,25 +41,30 @@ model{
   
   ## Posterior calculations:
   
+  ## Alpha diversity:
+  for(k in 1:nrep){
+    for(s in 1:nsite){
+      adiv[k,s] <- gdiv[k,s]/bdiv[k,s]
+  }}
+  
   ## Among replications comparison and comparison of gdiv estimates with 
   ## vegan::specpool():
   for(s in 1:nsite){
     gdiv_mean[s] <- mean(gdiv[,s])
     gdiv_se[s] <- sd(gdiv[,s])/sqrt(nrep)
     bdiv_mean[s] <- mean(bdiv[,s])
+    bdiv_se[s] <- sd(bdiv[,s])/sqrt(nrep)
+    adiv_mean[s] <- mean(adiv[,s])
+    adiv_se[s] <- sd(adiv[,s])/sqrt(nrep)
     for(k in 1:nrep){
       gdiv_diff[k,s] <- gdiv[k,s] - gdiv_mean[s]
       bdiv_diff[k,s] <- bdiv[k,s] - bdiv_mean[s]
+      adiv_diff[k,s] <- adiv[k,s] - adiv_mean[s]
     }
     gdiv_diff_sd[s] <- sd(gdiv_diff[,s])
-    bdiv_diff_sd[s] <- sd(gdiv_diff[,s])
+    bdiv_diff_sd[s] <- sd(bdiv_diff[,s])
+    adiv_diff_sd[s] <- sd(adiv_diff[,s])
   }
-  
-  ## Alpha diversity:
-  for(k in 1:nrep){
-    for(s in 1:nsite){
-      adiv[k,s] <- gdiv[k,s]/bdiv[k,s]
-  }}
   
 }
 

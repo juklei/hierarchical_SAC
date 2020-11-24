@@ -9,12 +9,15 @@
 
 rm(list = ls())
 
-require(devtools)
+# require(devtools)
 # install_version("ggplot2", version = "3.3.0", repos = "http://cran.us.r-project.org")
+require(ggtern)
 require(ggplot2)
+require(ggtern)
 # require(ggpubr)
 require(cowplot)
 require(data.table)
+require(scales)
 
 ## 2. Define or source functions used in this script ---------------------------
 
@@ -32,7 +35,7 @@ theme0 <- function(...) theme(legend.position = "none",
 
 ## 3. Load and explore data ----------------------------------------------------
 
-sir("clean")
+dir("clean")
 
 repl_diff <- read.csv("clean/hsac_collector_raw_replication_diff.csv")
 gdiv_comp <- read.csv("clean/hsac_collector_raw_gdiv_comp.csv")
@@ -44,7 +47,67 @@ pred_tsp <- read.csv("clean/hsac_collector_pred_tsp.csv")
 
 ## 4. Make graphs for hsac model evaluation ------------------------------------
 
-##...
+## Compare difference in estimated gamma diversity depending on sample order:
+
+head(repl_diff)
+
+g1 <- ggplot(repl_diff, aes(ntree, X50., color = div_metric))
+g2a <- geom_smooth(aes(ntree, X50.), method = "loess", se = FALSE)
+g2b <- geom_smooth(aes(ntree, X2.5.), method = "loess", se = FALSE, linetype = "dashed")
+g2c <- geom_smooth(aes(ntree, X97.5.), method = "loess", se = FALSE, linetype = "dashed")
+g3 <- geom_point(size = 3, alpha= 0.4)
+g4 <- geom_errorbar(aes(ymin = X2.5., ymax = X97.5.), 
+                    width = 0.5, alpha = 0.4)
+
+png("figures/hsac_repl_diff.png", 8000/4, 6000/4, "px", res = 600/4)
+ggplot2:::print.ggplot(g1 + g2a + g2b + g2c + g3 + g4 +
+                         ylab("SD of the differences \n between n=100 permutations") + 
+                         xlab("number of sampled trees per site") +
+                         scale_color_manual(breaks = c("adiv", "bdiv", "gdiv"),
+                                            labels = c("alpha diversity",
+                                                       "true beta diversity",
+                                                       "gamma diversity"),
+                                            values = c("orange", "blue", "black")) +
+                         theme_classic(40) +
+                         theme(legend.position = c(0.8, 0.8), 
+                               legend.title = element_blank(),
+                               legend.key.size = unit(3, 'lines')))
+dev.off()
+
+## Compare gamma estimates with those of vegan::specpool depending on number of
+## tree species:
+
+head(specpool_gamma)
+
+cbind(specpool_gamma, site_pred[site_pred$div_metric == "gdiv", ])
+
+
+# ## Make data set for mean:
+# sg_mean <- specpool_gamma[, c(1:3, 5, 8, 10)]
+# sg_mean <- melt(sg_mean, id.vars = c("plot", "Species", "n"))
+# sg_mean$lower <- NA
+# sg_mean$upper <- NA
+# gc_mean <- cbind(sg_mean[, 1:3], 
+#                         "variable" = "hsac", 
+#                         "value" = gdiv_comp[1:58, 4])
+# gc_mean$lower <- gdiv_comp[1:58, 1]
+# gc_mean$upper <- gdiv_comp[1:58, 6]
+# sggc_mean <- rbind(sg_mean, gc_mean)
+# sggc_mean$stat <- "mean"
+# 
+# ## Make data set for SE:
+# sg_se <- specpool_gamma[, c(1, 4, 6, 9)]
+# sg_se <- melt(sg_se, id.vars = "plot")
+# sg_se$lower <- NA
+# sg_se$upper <- NA
+# gc_se <- cbind(sg_se[, 1:3], 
+#                  "variable" = "hsac", 
+#                  "value" = gdiv_comp[1:58, 4])
+# gc_se$lower <- gdiv_comp[1:58, 1]
+# gc_se$upper <- gdiv_comp[1:58, 6]
+# sggc_se <- rbind(sg_se, gc_se)
+# 
+# gamma_comp <- cbind(specpool_gamma, gdiv_comp)
 
 ## 5. Make graphs for hsac with nr. of tree species ----------------------------
 
@@ -61,20 +124,20 @@ p4 <- geom_errorbar(aes(ymin = X2.5., ymax = X97.5.), width = 0.2)
 p5 <- facet_grid(div_metric ~ ., scales = "free_y")
 
 png("figures/hsac_tsp.png", 6000/4, 10000/4, "px", res = 600/4)
-p1 + p2 + p3 + p4 + p5 +
-  ylab("number/fraction of epiphytic lichen species") + 
-  xlab("number of tree species") +
-  theme_classic(40) 
+ggplot2:::print.ggplot(p1 + p2 + p3 + p4 + p5 +
+                       ylab("number/fraction of epiphytic lichen species") + 
+                       xlab("number of tree species") +
+                       theme_classic(40))
 dev.off()
 
-## 5. All tree species group percentages combined ------------------------------
+## 6. All tree species group percentages combined ------------------------------
 
 ## All percentages combined:
 
 ## Chose diversity index here:
 # div <- "adiv"
-# div <- "bdiv"
-div <- "gdiv"
+div <- "bdiv"
+# div <- "gdiv"
 
 head(pred_perc)
 head(max_perc)
@@ -100,61 +163,47 @@ q3 <- geom_ribbon(aes(ymin = X2.5., ymax = X97.5.), alpha = .2, colour = NA)
 Q <- q1 + q2 + q3 +
      ylab(ylab) + xlab("percentage of trees") +
      s1 + s2 +
-     theme_classic(40) +                  
+     theme_classic(40) +       
      theme(legend.position = c(0.4, 0.10), 
            legend.title = element_blank(),
            legend.key.size = unit(3, 'lines'),
            legend.direction = "horizontal")
+if(div == "bdiv"){Q <- Q + coord_trans(y = "log10")}
 
 ## Maxima:
 if(div == "bdiv"){
   max_perc$b_max[max_perc$b_max < 0 | max_perc$b_max >1] <- NA
-  p1 <- ggplot(max_perc, aes(b_max*100, color = L1, fill = L1, lty = L1))
+  p1 <- ggplot(max_perc, aes(b_max*100, color = L1, fill = L1, lty = L1)) 
 }
 if(div == "gdiv"){
   max_perc$g_max[max_perc$g_max < 0 | max_perc$g_max >1] <- NA
-  p1_g_max <- ggplot(max_perc, aes(g_max*100, color = L1, fill = L1, lty = L1))
+  p1 <- ggplot(max_perc, aes(g_max*100, color = L1, fill = L1, lty = L1))
 }
 if(div %in% c("gdiv", "bdiv")){
   p2 <- geom_density(alpha = .2)
   P <- p1 + p2 + xlim(0, 100) + s1 + s2 + theme0()
-  P <- plot_grid(P, Q, align = "v", nrow = 2, rel_heights = c(1/5, 4/5))
+  Q <- plot_grid(P, Q, align = "v", nrow = 2, rel_heights = c(1/5, 4/5))
 }
+
+png(paste0("figures/hsac_perc_quad_", div, ".png"), 
+    8000/4, ifelse(div == "adiv", 6000/4, 8000/4), "px", res = 600/4)
+ggplot2:::print.ggplot(Q)
+dev.off()
   
 ## Ternary plot:
 
 head(site_pred)
 
-y_all <- rbind(as.matrix(plot_estimates[[1]]),
-               as.matrix(plot_estimates[[2]]),
-               as.matrix(plot_estimates[[3]]))
-
-d_all <- data.frame("r" = apply(y_all, 2, mean),
-                    "sd" = apply(y_all, 2, sd),
-                    "dec" = rep(plot_estimates$dec, 2),
-                    "spruce" = rep(plot_estimates$spruce, 2),
-                    "pine" = rep(plot_estimates$pine, 2),
-                    "diversity" = c(rep("alpha", length(plot_estimates$dec)),
-                                    rep("beta", length(plot_estimates$dec))))
-
 require(ggtern) ## ggtern breaks ggplot2, load  ggplot2 version 3.2.1 to solve problem
-R <- ggtern(droplevels(d_all[d_all$diversity == div, ]), 
+R <- ggtern(droplevels(site_pred[site_pred$div_metric == div, ]), 
             aes(x = dec, y = spruce, z = pine)) +
-  # stat_density_tern(geom = 'polygon',
-  #                   n         = 500,
-  #                   aes(colour  = ..level.., alpha = ..level..)) +
-  # geom_interpolate_tern(aes(value = richness, colour = ..level..),
-  #                       bins = 50,
-  #                       alpha = 1) +
   geom_mask() +
-  geom_point(aes(colour = r), size = 10) +
+  geom_point(aes(colour = median), size = 10) +
   scale_colour_gradient(low = "yellow", high = "blue") + 
-  # scale_fill_gradient(low = "white", high = "yellow")  +
-  # guides(colour = "", fill = "none", alpha = "none") +
   xlab("") + ylab("") + ggtern::zlab("") +
   labs(colour = ylab, size = 10) +
   theme_classic(40) + 
-  theme(legend.position = "bottom",#"c(0.5, -0.05)", 
+  theme(legend.position = "bottom",
         legend.key.size = unit(3, 'lines'),
         legend.direction = "horizontal") +
   Tarrowlab("% spruce") + 
@@ -162,28 +211,7 @@ R <- ggtern(droplevels(d_all[d_all$diversity == div, ]),
   Rarrowlab("% pine") +
   theme_showarrows()
 
-R
-
-# # ## Annotate and export combined plots:
-# # 
-# # PQ <- annotate_figure(PQ, 
-# #                       fig.lab = " (a)",
-# #                       fig.lab.pos = "top.left", 
-# #                       fig.lab.size = 35)
-# # R <- annotate_figure(R,
-# #                      fig.lab = " (b)", 
-# #                      fig.lab.pos = "top.left",
-# #                      fig.lab.size = 35)
-# 
-# png("figures/figure_3_new.png", 16000/4, 8000/4, "px", res = 600/4)
-# plot_grid(PQ, R, align = "h", axis = "t", ncol = 2, rel_widths = c(0.52, 0.48))
-# dev.off()
-
-png(paste0("figures/figure_3a_new", div, ".png"), 8000/4, 8000/4, "px", res = 600/4)
-PQ
-dev.off()
-
-png(paste0("figures/figure_3b_new", div, ".png"), 8000/4, 8000/4, "px", res = 600/4)
+png(paste0("figures/hsac_perc_tern_", div, ".png"), 8000/4, 8000/4, "px", res = 600/4)
 R
 dev.off()
 

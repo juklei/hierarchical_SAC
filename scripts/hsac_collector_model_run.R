@@ -55,12 +55,14 @@ str(sad_tree)
 
 ## 4. Prepare data and inits ---------------------------------------------------
 
+select <- sample(1:dim(sad)[2], 1)
+
 ## Create model data set:
 data <- list(nrep = dim(sad)[2],
              nsite = dim(sad)[3],
              ntree = apply(sad, 3, function(x) sum(!is.na(x[,2]))), 
              obs_all = sad,
-             obs_red = sad[, sample(1:dim(sad)[2], 1), ],
+             obs_red = sad[, select, ],
              u = 1, ## Evaluation unit of alpha diversity
              dec = scale(sad_tree$dec),
              spruce = scale(sad_tree$spruce),
@@ -88,7 +90,7 @@ m.tsp <- "scripts/JAGS/hsac_collector_tsp_number.R"
 
 start <- Sys.time()
 
-n.adapt <- 5000; n.iter <- 15000; samples <- 15000; n.thin <- 15
+n.adapt <- 5000; n.iter <- 15000; samples <- 5000; n.thin <- 5
 
 ## 5a. Run m.raw for model testing and comparison ------------------------------
 
@@ -146,7 +148,7 @@ capture.output(raftery.diag(zc), heidel.diag(zc)) %>%
 ## Produce SAC from fitted model and compare with raw accumulation data:
 zc_val <- parCodaSamples(cl = cl, model = "hsac",
                          variable.names = "sim_obs",
-                         n.iter = 3500,
+                         n.iter = 1000,
                          thin = 10)
 zc_val_comb <- combine.mcmc(zc_val)
 
@@ -182,12 +184,14 @@ dev.off()
 ## and does that vary with sample size (number of trees)?
 
 zc_diff <- parCodaSamples(cl = cl, model = "hsac",
-                          variable.names = c("gdiv_diff_sd", "bdiv_diff_sd"),
+                          variable.names = c("gdiv_diff_sd", 
+                                             "bdiv_diff_sd", 
+                                             "adiv_diff_sd"),
                           n.iter = samples,
                           thin = n.thin)
 diff <- as.data.frame(summary(zc_diff)$quantile)
 diff$ntree <- data$ntree
-diff$div_metric <- c("bdiv", "gdiv")
+diff$div_metric <- c("adiv", "bdiv", "gdiv")
 diff$div_metric <- sort(diff$div_metric)
 
 ## Export for graphing:

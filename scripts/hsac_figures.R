@@ -9,12 +9,9 @@
 
 rm(list = ls())
 
-# require(devtools)
-# install_version("ggplot2", version = "3.3.0", repos = "http://cran.us.r-project.org")
 require(ggtern)
 require(ggplot2)
 require(ggtern)
-# require(ggpubr)
 require(cowplot)
 require(data.table)
 require(scales)
@@ -39,7 +36,6 @@ dir("clean")
 
 repl_diff <- read.csv("clean/hsac_collector_raw_replication_diff.csv")
 gdiv_comp <- read.csv("clean/hsac_collector_raw_gdiv_comp.csv")
-specpool_gamma <- read.csv("clean/specpool_gamma.csv") 
 site_pred <- read.csv("clean/hsac_collector_raw_site_pred.csv")
 pred_perc <- read.csv("clean/hsac_collector_pred_perc.csv")            
 max_perc <- read.csv("clean/hsac_collector_max_perc.csv")             
@@ -78,36 +74,33 @@ dev.off()
 ## tree species:
 
 head(specpool_gamma)
+head(site_pred)
 
-cbind(specpool_gamma, site_pred[site_pred$div_metric == "gdiv", ])
+sg_mean <- specpool_gamma[, c(1:3, 5, 8, 10)]
+sg_mean <- melt(sg_mean, 
+                id.vars = c("plot", "Species", "n"), 
+                value.name = "mean_sp")
+sg_se <- specpool_gamma[, c(1, 4, 6, 9)]
+sg_se <- melt(sg_se, id.vars = "plot")
+sg_mean$lower_sp <- sg_mean$mean - sg_se$value*1.96 ## SE to 95% CI
+sg_mean$upper_sp <- sg_mean$mean + sg_se$value*1.96 ## SE to 95% CI
 
+alt_gcomp <- cbind(sg_mean, site_pred[site_pred$div_metric == "gdiv", 
+                                      c("mean", "lower", "upper")])
 
-# ## Make data set for mean:
-# sg_mean <- specpool_gamma[, c(1:3, 5, 8, 10)]
-# sg_mean <- melt(sg_mean, id.vars = c("plot", "Species", "n"))
-# sg_mean$lower <- NA
-# sg_mean$upper <- NA
-# gc_mean <- cbind(sg_mean[, 1:3], 
-#                         "variable" = "hsac", 
-#                         "value" = gdiv_comp[1:58, 4])
-# gc_mean$lower <- gdiv_comp[1:58, 1]
-# gc_mean$upper <- gdiv_comp[1:58, 6]
-# sggc_mean <- rbind(sg_mean, gc_mean)
-# sggc_mean$stat <- "mean"
-# 
-# ## Make data set for SE:
-# sg_se <- specpool_gamma[, c(1, 4, 6, 9)]
-# sg_se <- melt(sg_se, id.vars = "plot")
-# sg_se$lower <- NA
-# sg_se$upper <- NA
-# gc_se <- cbind(sg_se[, 1:3], 
-#                  "variable" = "hsac", 
-#                  "value" = gdiv_comp[1:58, 4])
-# gc_se$lower <- gdiv_comp[1:58, 1]
-# gc_se$upper <- gdiv_comp[1:58, 6]
-# sggc_se <- rbind(sg_se, gc_se)
-# 
-# gamma_comp <- cbind(specpool_gamma, gdiv_comp)
+h1 <- ggplot(alt_gcomp, aes(mean, mean_sp))
+h2 <- geom_point(size = 3, alpha = 0.4)#, position = position_dodge(width = 1))
+h3 <- geom_errorbarh(aes(xmin = lower, xmax = upper), height = 1, alpha = 0.4)
+h4 <- geom_errorbar(aes(ymin = lower_sp, ymax = upper_sp), width = 0.5, alpha = 0.4)
+h5 <- facet_grid(variable ~ ., scales = "free_y")
+h6 <- geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+
+png("figures/gamma_comp.png", 6000/4, 10000/4, "px", res = 600/4)
+ggplot2:::print.ggplot(h1 + h6 + h2 + h3 + h4 + h5 +
+                       ylab("gamma diversity vegan::specpool") + 
+                       xlab("gamma diversity hsac model") +
+                       theme_classic(40))
+dev.off()
 
 ## 5. Make graphs for hsac with nr. of tree species ----------------------------
 

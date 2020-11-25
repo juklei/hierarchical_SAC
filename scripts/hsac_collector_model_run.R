@@ -41,9 +41,6 @@ backscale <- function(pred_data, model_input_data) {
 ## Calculate median and 95% CI for data.table:
 quant_calc <- function(x) as.list(quantile(x, probs = c(0.025, 0.5, 0.975)))
 
-## Standard error calculation:
-std.error <- function(x)sd(x)/sqrt(length(x))
-
 ## 3. Load and explore data ----------------------------------------------------
 
 dir("clean")
@@ -90,7 +87,7 @@ m.tsp <- "scripts/JAGS/hsac_collector_tsp_number.R"
 
 start <- Sys.time()
 
-n.adapt <- 5000; n.iter <- 15000; samples <- 5000; n.thin <- 5
+n.adapt <- 1000; n.iter <- 1000; samples <- 500; n.thin <- 2
 
 ## 5a. Run m.raw for model testing and comparison ------------------------------
 
@@ -197,22 +194,11 @@ diff$div_metric <- sort(diff$div_metric)
 ## Export for graphing:
 write.csv(diff, "clean/hsac_collector_raw_replication_diff.csv")
 
-## Compare Gamma diversity from hsac_collector model with estimates from 
-## vegan::specpool():
-
-zc_comp <- parCodaSamples(cl = cl, model = "hsac",
-                          variable.names = c("gdiv_mean", "gdiv_se"),
-                          n.iter = samples,
-                          thin = n.thin)
-comp <- as.data.frame(summary(zc_comp)$quantile)
-comp$ntree <- data$ntree
-comp$summary_stat <- c("gdiv_mean", "gdiv_se")
-comp$summary_stat <- sort(comp$summary_stat)
-
 ## Export for graphing:
 write.csv(comp, "clean/hsac_collector_raw_gdiv_comp.csv")
 
-## 5b. Use m.raw to export diversity metrics for all sites ---------------------
+## 5b. Use m.raw to export diversity metrics for all sites to make graphs ------
+##     and compare gdiv with the estimates of vegan::specpool
 
 zc_pred <- parCodaSamples(cl = cl, model = "hsac",
                           variable.names = c("adiv", "bdiv", "gdiv"),
@@ -224,7 +210,7 @@ pred <- as.data.table(melt(as.data.table(zc_pred_comb),
                            measure.vars = dimnames(zc_pred_comb)[[2]]))
 pred$variable <- gsub("[[:digit:]]+,", "", pred$variable)
 pred[, c("lower", "median", "upper") := quant_calc(value), by = "variable"]
-pred[, c("mean", "SE") := list(mean(value), std.error(value)), by = "variable"]
+pred[, "mean" := mean(value), by = "variable"]
 pred <- as.data.frame(unique(pred[ , -2]))
 pred$site <- 1:data$nsite
 pred <- cbind(pred, sad_tree[, c("dec", "spruce", "pine")])

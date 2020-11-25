@@ -51,11 +51,8 @@ model{
   ## vegan::specpool():
   for(s in 1:nsite){
     gdiv_mean[s] <- mean(gdiv[,s])
-    gdiv_se[s] <- sd(gdiv[,s])/sqrt(nrep)
     bdiv_mean[s] <- mean(bdiv[,s])
-    bdiv_se[s] <- sd(bdiv[,s])/sqrt(nrep)
     adiv_mean[s] <- mean(adiv[,s])
-    adiv_se[s] <- sd(adiv[,s])/sqrt(nrep)
     for(k in 1:nrep){
       gdiv_diff[k,s] <- gdiv[k,s] - gdiv_mean[s]
       bdiv_diff[k,s] <- bdiv[k,s] - bdiv_mean[s]

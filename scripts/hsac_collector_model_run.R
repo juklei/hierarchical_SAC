@@ -88,7 +88,7 @@ m.tsp <- "scripts/JAGS/hsac_collector_tsp_number.R"
 
 start <- Sys.time()
 
-n.adapt <- 1000; n.iter <- 1000; samples <- 500; n.thin <- 2
+n.adapt <- 5000; n.iter <- 15000; samples <- 20000; n.thin <- 16
 
 ## 5a. Run m.raw for model testing and comparison ------------------------------
 
@@ -176,6 +176,7 @@ for(i in 1:data$nsite) {
                      "accumulation" = na.omit(as.vector(sad[,,i]))),
           add = TRUE)
 }
+
 dev.off()
 
 ## How much do the estimates vary among replicated accumulation curves per plot,
@@ -195,28 +196,18 @@ diff$div_metric <- sort(diff$div_metric)
 ## Export for graphing:
 write.csv(diff, "clean/hsac_collector_raw_replication_diff.csv")
 
-## Export for graphing:
-write.csv(comp, "clean/hsac_collector_raw_gdiv_comp.csv")
-
 ## 5b. Use m.raw to export diversity metrics for all sites to make graphs ------
 ##     and compare gdiv with the estimates of vegan::specpool
 
 zc_pred <- parCodaSamples(cl = cl, model = "hsac",
-                          variable.names = c("adiv", "bdiv", "gdiv"),
+                          variable.names = c("adiv_sel", "bdiv_sel", "gdiv_sel"),
                           n.iter = samples,
                           thin = n.thin)
-zc_pred_comb <- combine.mcmc(zc_pred)
-
-pred <- as.data.table(melt(as.data.table(zc_pred_comb), 
-                           measure.vars = dimnames(zc_pred_comb)[[2]]))
-pred$variable <- gsub("[[:digit:]]+,", "", pred$variable)
-pred[, c("lower", "median", "upper") := quant_calc(value), by = "variable"]
-pred[, "mean" := mean(value), by = "variable"]
-pred <- as.data.frame(unique(pred[ , -2]))
+pred <- as.data.frame(summary(zc_pred)$quantiles)
+pred$mean <- summary(zc_pred)$statistics[, "Mean"]
+pred$div_metric <- gsub("_sel[[[:digit:]]+]", "", rownames(pred))
 pred$site <- 1:data$nsite
 pred <- cbind(pred, sad_tree[, c("dec", "spruce", "pine")])
-pred$div_metric <- c("adiv", "bdiv", "gdiv")
-pred$div_metric <- sort(pred$div_metric)
 
 ## Export for graphing:
 write.csv(pred, "clean/hsac_collector_raw_site_pred.csv")

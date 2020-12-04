@@ -36,10 +36,11 @@ dir("clean")
 
 repl_diff <- read.csv("clean/hsac_collector_raw_replication_diff.csv")
 gdiv_comp <- read.csv("clean/hsac_collector_raw_gdiv_comp.csv")
-site_pred <- read.csv("clean/hsac_collector_raw_site_pred.csv")
+site_pred <- read.csv("clean/hsac_collector_raw_site_pred_red.csv")
 pred_perc <- read.csv("clean/hsac_collector_pred_perc.csv")            
 max_perc <- read.csv("clean/hsac_collector_max_perc.csv")             
-pred_tsp <- read.csv("clean/hsac_collector_pred_tsp.csv")            
+pred_tsp <- read.csv("clean/hsac_collector_pred_tsp.csv") 
+specpool_gamma <- read.csv("clean/specpool_gamma.csv")
 
 ## 4. Make graphs for hsac model evaluation ------------------------------------
 
@@ -77,20 +78,20 @@ head(specpool_gamma)
 head(site_pred)
 
 sg_mean <- specpool_gamma[, c(1:3, 5, 8, 10)]
-sg_mean <- melt(sg_mean, 
-                id.vars = c("plot", "Species", "n"), 
-                value.name = "mean_sp")
+sg_mean <- reshape2::melt(sg_mean, 
+                          id.vars = c("plot", "Species", "n"), 
+                          value.name = "mean_sp")
 sg_se <- specpool_gamma[, c(1, 4, 6, 9)]
-sg_se <- melt(sg_se, id.vars = "plot")
+sg_se <- reshape2::melt(sg_se, id.vars = "plot")
 sg_mean$lower_sp <- sg_mean$mean - sg_se$value*1.96 ## SE to 95% CI
 sg_mean$upper_sp <- sg_mean$mean + sg_se$value*1.96 ## SE to 95% CI
 
-alt_gcomp <- cbind(sg_mean, site_pred[site_pred$div_metric == "gdiv", 
-                                      c("mean", "lower", "upper")])
+gcomp <- cbind(sg_mean, site_pred[site_pred$div_metric == "gdiv", 
+                                  c("mean", "X2.5.", "X97.5.")])
 
-h1 <- ggplot(alt_gcomp, aes(mean, mean_sp))
+h1 <- ggplot(gcomp, aes(mean, mean_sp))
 h2 <- geom_point(size = 3, alpha = 0.4)#, position = position_dodge(width = 1))
-h3 <- geom_errorbarh(aes(xmin = lower, xmax = upper), height = 1, alpha = 0.4)
+h3 <- geom_errorbarh(aes(xmin = X2.5., xmax = X97.5.), height = 1, alpha = 0.4)
 h4 <- geom_errorbar(aes(ymin = lower_sp, ymax = upper_sp), width = 0.5, alpha = 0.4)
 h5 <- facet_grid(variable ~ ., scales = "free_y")
 h6 <- geom_abline(intercept = 0, slope = 1, linetype = "dashed")
@@ -191,7 +192,7 @@ require(ggtern) ## ggtern breaks ggplot2, load  ggplot2 version 3.2.1 to solve p
 R <- ggtern(droplevels(site_pred[site_pred$div_metric == div, ]), 
             aes(x = dec, y = spruce, z = pine)) +
   geom_mask() +
-  geom_point(aes(colour = median), size = 10) +
+  geom_point(aes(colour = X50.), size = 10) +
   scale_colour_gradient(low = "yellow", high = "blue") + 
   xlab("") + ylab("") + ggtern::zlab("") +
   labs(colour = ylab, size = 10) +

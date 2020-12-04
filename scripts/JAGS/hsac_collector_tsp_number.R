@@ -46,7 +46,7 @@ model{
   g_4tsp ~ dnorm(0, 0.001)
   g_dbh ~ dnorm(0, 0.001)
   ## Beta diversity:
-  sigma_bdiv ~ dgamma(0.001, 0.001)
+  sigma_bdiv ~ dt(0, pow(2.5,-2), 1)T(0,)
   b_icpt ~ dgamma(0.001, 0.001)
   b_2tsp ~ dnorm(0, 0.001)
   b_3tsp ~ dnorm(0, 0.001)

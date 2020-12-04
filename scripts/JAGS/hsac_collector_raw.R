@@ -37,7 +37,7 @@ model{
     log(mu_bdiv[k]) <- mu_bdiv_log[k] 
     mu_bdiv_log[k] ~ dgamma(0.001, 0.001)
   }
-  sigma_bdiv ~ dgamma(0.001, 0.001)
+  sigma_bdiv ~ dt(0, pow(2.5,-2), 1)T(0,)
   
   ## Posterior calculations:
   
@@ -47,8 +47,7 @@ model{
       adiv[k,s] <- gdiv[k,s]/bdiv[k,s]
   }}
   
-  ## Among replications comparison and comparison of gdiv estimates with 
-  ## vegan::specpool():
+  ## Among replications comparison:
   for(s in 1:nsite){
     gdiv_mean[s] <- mean(gdiv[,s])
     bdiv_mean[s] <- mean(bdiv[,s])
@@ -61,6 +60,14 @@ model{
     gdiv_diff_sd[s] <- sd(gdiv_diff[,s])
     bdiv_diff_sd[s] <- sd(bdiv_diff[,s])
     adiv_diff_sd[s] <- sd(adiv_diff[,s])
+  }
+  
+  ## Extracting estimates for the permutation used in the covariate model parts
+  ## and for comparison of gdiv estimates with vegan::specpool():
+  for(s in 1:nsite){
+    gdiv_sel[s] <- gdiv[select, s]
+    bdiv_sel[s] <- bdiv[select, s]
+    adiv_sel[s] <- adiv[select, s]
   }
   
 }

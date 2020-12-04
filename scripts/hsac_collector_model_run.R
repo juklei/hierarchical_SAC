@@ -60,6 +60,7 @@ data <- list(nrep = dim(sad)[2],
              ntree = apply(sad, 3, function(x) sum(!is.na(x[,2]))), 
              obs_all = sad,
              obs_red = sad[, select, ],
+             select = select,
              u = 1, ## Evaluation unit of alpha diversity
              dec = scale(sad_tree$dec),
              spruce = scale(sad_tree$spruce),

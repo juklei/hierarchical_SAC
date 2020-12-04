@@ -40,7 +40,7 @@ model{
   g_perc2 ~ dnorm(0, 0.01)
   g_dbh ~ dnorm(0, 0.01)
   ## Beta diversity:
-  sigma_bdiv ~ dgamma(0.001, 0.001)
+  sigma_bdiv ~ dt(0, pow(2.5,-2), 1)T(0,)
   b_icpt ~ dgamma(0.001, 0.001)
   b_perc ~ dnorm(0, 0.01)
   b_perc2 ~ dnorm(0, 0.01)

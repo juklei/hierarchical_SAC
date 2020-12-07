@@ -52,6 +52,7 @@ str(sad_tree)
 
 ## 4. Prepare data and inits ---------------------------------------------------
 
+set.seed(1)
 select <- sample(1:dim(sad)[2], 1)
 
 ## Create model data set:
@@ -201,8 +202,8 @@ write.csv(diff, "clean/hsac_collector_raw_replication_diff.csv")
 
 zc_pred <- parCodaSamples(cl = cl, model = "hsac",
                           variable.names = c("adiv_sel", "bdiv_sel", "gdiv_sel"),
-                          n.iter = samples,
-                          thin = n.thin)
+                          n.iter = samples*5,
+                          thin = n.thin*5)
 pred <- as.data.frame(summary(zc_pred)$quantiles)
 pred$mean <- summary(zc_pred)$statistics[, "Mean"]
 pred$div_metric <- gsub("_sel[[[:digit:]]+]", "", rownames(pred))
@@ -248,7 +249,7 @@ for(i in c("dec", "spruce", "pine")){
                                           "g_perc", "g_perc2", 
                                           "sigma_bdiv", "b_icpt", "b_dbh",
                                           "b_perc", "b_perc2"),
-                       n.iter = samples, thin = n.thin)
+                       n.iter = samples*10, thin = n.thin*10)
 
   capture.output(summary(zc), HPDinterval(zc, prob = 0.95)) %>% 
     write(., paste0("results/parameters_hsac_collector_", i, ".txt"))
@@ -265,7 +266,7 @@ for(i in c("dec", "spruce", "pine")){
                                  variable.names = c("adiv_pred", 
                                                     "bdiv_pred",
                                                     "gdiv_pred"),
-                                 n.iter = samples, thin = n.thin)
+                                 n.iter = samples*10, thin = n.thin*10)
 
   pred_perc <- as.data.frame(summary(zc_pred_perc)$quantile)
   pred_perc$perc_pred <- backscale(data$perc_pred, data[[i]])
@@ -277,7 +278,7 @@ for(i in c("dec", "spruce", "pine")){
   ## Export maximum percentage values for the quadratic curves of gdiv and bdiv:
   zc_pp_max <- parCodaSamples(cl = cl, model = "hsac",
                               variable.names = c("b_perc_max", "g_perc_max"),
-                              n.iter = samples, thin = n.thin)
+                              n.iter = samples*10, thin = n.thin*10)
 
   pp_max <- data.frame("b_max" = backscale(unlist(zc_pp_max[, "b_perc_max"]), 
                                            data[[i]]),
@@ -303,34 +304,34 @@ write.csv(pp_max, "clean/hsac_collector_max_perc.csv")
 ## 7. Run m.tsp ----------------------------------------------------------------
 
 inits <- list(list(gdiv = rep(60, data$nsite), bdiv = rep(6, data$nsite),
-                   g_icpt = log(37), g_dbh = 1, 
+                   g_icpt = log(30), g_dbh = 1, 
                    g_2tsp = 1, g_3tsp = 1, g_4tsp = 1,
-                   sigma_bdiv = 0.9, 
-                   b_icpt = 4, b_dbh = -0.3, 
+                   sigma_bdiv = 1, 
+                   b_icpt = 1, b_dbh = 1, 
                    b_2tsp = 1, b_3tsp = 1, b_4tsp = 1),
               list(gdiv = rep(40, data$nsite), bdiv = rep(2, data$nsite),
-                   g_icpt = log(33), g_dbh = -2, 
-                   g_2tsp = -1, g_3tsp = -1, g_4tsp = -1,
-                   sigma_bdiv = 0.6, 
-                   b_icpt = 3, b_dbh = -0.8, 
-                   b_2tsp = -1, b_3tsp = -1, b_4tsp = -1),
+                   g_icpt = log(20), g_dbh = 0, 
+                   g_2tsp = 0, g_3tsp = 0.1, g_4tsp = 0.2,
+                   sigma_bdiv = 0.1, 
+                   b_icpt = 0.6, b_dbh = -0.08, 
+                   b_2tsp = -0.4, b_3tsp = 0.8, b_4tsp = -0.2),
               list(gdiv = rep(20, data$nsite), bdiv = rep(3, data$nsite),
-                   g_icpt = log(41), g_dbh = 4, 
-                   g_2tsp = 0, g_3tsp = 0, g_4tsp = 0,
-                   sigma_bdiv = 1.2, 
-                   b_icpt = 5, b_dbh = 0.2, 
-                   b_2tsp = 0, b_3tsp = 0, b_4tsp = 0))
+                   g_icpt = log(35), g_dbh = 0.15, 
+                   g_2tsp = 0.6, g_3tsp = 0.6, g_4tsp = 0.8,
+                   sigma_bdiv = 0.8, 
+                   b_icpt = 1.4, b_dbh = 0.2, 
+                   b_2tsp = 0.5, b_3tsp = 0, b_4tsp = 0.8))
 
 cl <- makePSOCKcluster(3) 
 parJagsModel(cl, "hsac", m.tsp, data, inits, 3, n.adapt)
-parUpdate(cl = cl, object = "hsac", n.iter = n.iter)
+parUpdate(cl = cl, object = "hsac", n.iter = n.iter*2)
 
 zc <- parCodaSamples(cl = cl, model = "hsac",
                      variable.names = c("g_icpt", "g_dbh",
                                         "g_2tsp", "g_3tsp", "g_4tsp", 
                                         "sigma_bdiv", "b_icpt", "b_dbh",
                                         "b_2tsp", "b_3tsp", "b_4tsp"),
-                     n.iter = samples, thin = n.thin)
+                     n.iter = samples*8, thin = n.thin*8)
 
 capture.output(summary(zc), HPDinterval(zc, prob = 0.95)) %>% 
   write(., "results/parameters_hsac_collector_tsp.txt")
@@ -349,7 +350,7 @@ zc_pred_tsp <- parCodaSamples(cl = cl, model = "hsac",
                                                  "bdiv_3tsp", "bdiv_4tsp",
                                                  "gdiv_1tsp", "gdiv_2tsp", 
                                                  "gdiv_3tsp", "gdiv_4tsp"),
-                              n.iter = samples, thin = n.thin)
+                              n.iter = samples*2, thin = n.thin*2)
 
 pred_tsp <- as.data.frame(summary(zc_pred_tsp)$quantiles)
 pred_tsp$div_metric <- c("adiv", "bdiv", "gdiv")
@@ -368,7 +369,7 @@ zc_tsp_diff <- parCodaSamples(cl = cl, model = "hsac",
                                                  "gdiv_diff_21", "gdiv_diff_31", 
                                                  "gdiv_diff_41", "gdiv_diff_32",
                                                  "gdiv_diff_42", "gdiv_diff_43"),
-                              n.iter = samples, thin = n.thin)
+                              n.iter = samples*2, thin = n.thin*2)
 
 ## Extract probability that difference between nr_tsp is bigger than 0:
 ANOVA_prob <- summary(zc_tsp_diff)$quantiles

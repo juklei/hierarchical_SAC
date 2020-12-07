@@ -36,7 +36,7 @@ dir("clean")
 
 repl_diff <- read.csv("clean/hsac_collector_raw_replication_diff.csv")
 gdiv_comp <- read.csv("clean/hsac_collector_raw_gdiv_comp.csv")
-site_pred <- read.csv("clean/hsac_collector_raw_site_pred_red.csv")
+site_pred <- read.csv("clean/hsac_collector_raw_site_pred.csv")
 pred_perc <- read.csv("clean/hsac_collector_pred_perc.csv")            
 max_perc <- read.csv("clean/hsac_collector_max_perc.csv")             
 pred_tsp <- read.csv("clean/hsac_collector_pred_tsp.csv") 
@@ -162,7 +162,7 @@ Q <- q1 + q2 + q3 +
            legend.title = element_blank(),
            legend.key.size = unit(3, 'lines'),
            legend.direction = "horizontal")
-if(div == "bdiv"){Q <- Q + coord_trans(y = "log10")}
+# if(div == "bdiv"){Q <- Q + coord_trans(y = "log10")}
 
 ## Maxima:
 if(div == "bdiv"){

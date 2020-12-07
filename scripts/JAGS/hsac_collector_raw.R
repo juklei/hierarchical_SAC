@@ -49,17 +49,9 @@ model{
   
   ## Among replications comparison:
   for(s in 1:nsite){
-    gdiv_mean[s] <- mean(gdiv[,s])
-    bdiv_mean[s] <- mean(bdiv[,s])
-    adiv_mean[s] <- mean(adiv[,s])
-    for(k in 1:nrep){
-      gdiv_diff[k,s] <- gdiv[k,s] - gdiv_mean[s]
-      bdiv_diff[k,s] <- bdiv[k,s] - bdiv_mean[s]
-      adiv_diff[k,s] <- adiv[k,s] - adiv_mean[s]
-    }
-    gdiv_diff_sd[s] <- sd(gdiv_diff[,s])
-    bdiv_diff_sd[s] <- sd(bdiv_diff[,s])
-    adiv_diff_sd[s] <- sd(adiv_diff[,s])
+    gdiv_cv[s] <- sd(gdiv[,s])/mean(gdiv[,s])
+    bdiv_cv[s] <- sd(bdiv[,s])/mean(bdiv[,s])
+    adiv_cv[s] <- sd(adiv[,s])/mean(adiv[,s])
   }
   
   ## Extracting estimates for the permutation used in the covariate model parts

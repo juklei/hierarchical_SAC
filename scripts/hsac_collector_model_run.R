@@ -183,19 +183,17 @@ dev.off()
 ## How much do the estimates vary among replicated accumulation curves per plot,
 ## and does that vary with sample size (number of trees)?
 
-zc_diff <- parCodaSamples(cl = cl, model = "hsac",
-                          variable.names = c("gdiv_diff_sd", 
-                                             "bdiv_diff_sd", 
-                                             "adiv_diff_sd"),
+zc_cv <- parCodaSamples(cl = cl, model = "hsac",
+                          variable.names = c("gdiv_cv", "bdiv_cv", "adiv_cv"),
                           n.iter = samples,
                           thin = n.thin)
-diff <- as.data.frame(summary(zc_diff)$quantile)
-diff$ntree <- data$ntree
-diff$div_metric <- c("adiv", "bdiv", "gdiv")
-diff$div_metric <- sort(diff$div_metric)
+cv <- as.data.frame(summary(zc_cv)$quantile)
+cv$ntree <- data$ntree
+cv$div_metric <- c("adiv", "bdiv", "gdiv")
+cv$div_metric <- sort(cv$div_metric)
 
 ## Export for graphing:
-write.csv(diff, "clean/hsac_collector_raw_replication_diff.csv")
+write.csv(cv, "clean/hsac_collector_raw_replication_cv.csv")
 
 ## 5b. Use m.raw to export diversity metrics for all sites to make graphs ------
 ##     and compare gdiv with the estimates of vegan::specpool
@@ -359,22 +357,22 @@ pred_tsp$nr_tsp <- rep(1:4, 3)
 
 write.csv(pred_tsp, paste0("clean/hsac_collector_pred_tsp.csv"))
 
-zc_tsp_diff <- parCodaSamples(cl = cl, model = "hsac",
-                              variable.names = c("adiv_diff_21", "adiv_diff_31", 
-                                                 "adiv_diff_41", "adiv_diff_32",
-                                                 "adiv_diff_42", "adiv_diff_43",
-                                                 "bdiv_diff_21", "bdiv_diff_31", 
-                                                 "bdiv_diff_41", "bdiv_diff_32",
-                                                 "bdiv_diff_42", "bdiv_diff_43",
-                                                 "gdiv_diff_21", "gdiv_diff_31", 
-                                                 "gdiv_diff_41", "gdiv_diff_32",
-                                                 "gdiv_diff_42", "gdiv_diff_43"),
+zc_tsp_cv <- parCodaSamples(cl = cl, model = "hsac",
+                              variable.names = c("adiv_cv_21", "adiv_cv_31", 
+                                                 "adiv_cv_41", "adiv_cv_32",
+                                                 "adiv_cv_42", "adiv_cv_43",
+                                                 "bdiv_cv_21", "bdiv_cv_31", 
+                                                 "bdiv_cv_41", "bdiv_cv_32",
+                                                 "bdiv_cv_42", "bdiv_cv_43",
+                                                 "gdiv_cv_21", "gdiv_cv_31", 
+                                                 "gdiv_cv_41", "gdiv_cv_32",
+                                                 "gdiv_cv_42", "gdiv_cv_43"),
                               n.iter = samples*2, thin = n.thin*2)
 
-## Extract probability that difference between nr_tsp is bigger than 0:
-ANOVA_prob <- summary(zc_tsp_diff)$quantiles
+## Extract probability that cverence between nr_tsp is bigger than 0:
+ANOVA_prob <- summary(zc_tsp_cv)$quantiles
 ANOVA_prob <- cbind(ANOVA_prob, 
-                    "ecdf" = sapply(as.data.frame(combine.mcmc(zc_tsp_diff)), 
+                    "ecdf" = sapply(as.data.frame(combine.mcmc(zc_tsp_cv)), 
                                     function(x) 1-ecdf(x)(0))) 
 write.csv(ANOVA_prob, "results/hsac_collector_tsp_ANOVA.csv")
 

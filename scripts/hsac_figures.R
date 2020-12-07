@@ -34,8 +34,7 @@ theme0 <- function(...) theme(legend.position = "none",
 
 dir("clean")
 
-repl_diff <- read.csv("clean/hsac_collector_raw_replication_diff.csv")
-gdiv_comp <- read.csv("clean/hsac_collector_raw_gdiv_comp.csv")
+repl_cv <- read.csv("clean/hsac_collector_raw_replication_cv.csv")
 site_pred <- read.csv("clean/hsac_collector_raw_site_pred.csv")
 pred_perc <- read.csv("clean/hsac_collector_pred_perc.csv")            
 max_perc <- read.csv("clean/hsac_collector_max_perc.csv")             
@@ -44,11 +43,11 @@ specpool_gamma <- read.csv("clean/specpool_gamma.csv")
 
 ## 4. Make graphs for hsac model evaluation ------------------------------------
 
-## Compare difference in estimated gamma diversity depending on sample order:
+## Compare varition in estimated diversity metrics depending on sample order:
 
-head(repl_diff)
+head(repl_cv)
 
-g1 <- ggplot(repl_diff, aes(ntree, X50., color = div_metric))
+g1 <- ggplot(repl_cv, aes(ntree, X50., color = div_metric))
 g2a <- geom_smooth(aes(ntree, X50.), method = "loess", se = FALSE)
 g2b <- geom_smooth(aes(ntree, X2.5.), method = "loess", se = FALSE, linetype = "dashed")
 g2c <- geom_smooth(aes(ntree, X97.5.), method = "loess", se = FALSE, linetype = "dashed")
@@ -56,19 +55,19 @@ g3 <- geom_point(size = 3, alpha= 0.4)
 g4 <- geom_errorbar(aes(ymin = X2.5., ymax = X97.5.), 
                     width = 0.5, alpha = 0.4)
 
-png("figures/hsac_repl_diff.png", 8000/4, 6000/4, "px", res = 600/4)
+png("figures/hsac_repl_cv.png", 8000/4, 6000/4, "px", res = 600/4)
 ggplot2:::print.ggplot(g1 + g2a + g2b + g2c + g3 + g4 +
-                         ylab("SD of the differences \n between n=100 permutations") + 
+                         ylab("coefficient of variation") + 
                          xlab("number of sampled trees per site") +
                          scale_color_manual(breaks = c("adiv", "bdiv", "gdiv"),
-                                            labels = c("alpha diversity",
-                                                       "true beta diversity",
-                                                       "gamma diversity"),
+                                            labels = c("alpha", "true beta", "gamma"),
                                             values = c("orange", "blue", "black")) +
                          theme_classic(40) +
-                         theme(legend.position = c(0.8, 0.8), 
+                         theme(legend.position = c(0.6, .35), 
                                legend.title = element_blank(),
-                               legend.key.size = unit(3, 'lines')))
+                               legend.key.size = unit(3, 'lines'),
+                               legend.background =  element_blank(),
+                               legend.direction = "horizontal"))
 dev.off()
 
 ## Compare gamma estimates with those of vegan::specpool depending on number of

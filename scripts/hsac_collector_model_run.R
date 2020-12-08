@@ -24,6 +24,9 @@ library(vegan)
 
 ## 2. Define or source functions used in this script ---------------------------
 
+## Define seed to get the same sample in random processes (Reproducability):
+seed <- 10
+
 source("scripts/hsac_data_prepare.r")
 
 dir.create("results")
@@ -52,7 +55,7 @@ str(sad_tree)
 
 ## 4. Prepare data and inits ---------------------------------------------------
 
-set.seed(1)
+set.seed(seed)
 select <- sample(1:dim(sad)[2], 1)
 
 ## Create model data set:

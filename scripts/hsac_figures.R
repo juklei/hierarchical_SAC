@@ -157,11 +157,12 @@ Q <- q1 + q2 + q3 +
      ylab(ylab) + xlab("percentage of trees") +
      s1 + s2 +
      theme_classic(40) +       
-     theme(legend.position = c(0.4, 0.10), 
+     theme(legend.position = c(0.4, 0.1), 
            legend.title = element_blank(),
            legend.key.size = unit(3, 'lines'),
+           legend.background =  element_blank(),
            legend.direction = "horizontal")
-# if(div == "bdiv"){Q <- Q + coord_trans(y = "log10")}
+if(div == "adiv"){Q <- Q + coord_trans(y = "log10")}
 
 ## Maxima:
 if(div == "bdiv"){
@@ -192,7 +193,7 @@ R <- ggtern(droplevels(site_pred[site_pred$div_metric == div, ]),
             aes(x = dec, y = spruce, z = pine)) +
   geom_mask() +
   geom_point(aes(colour = X50.), size = 10) +
-  scale_colour_gradient(low = "yellow", high = "blue") + 
+  scale_colour_gradient(low = "yellow", high = "blue", breaks = c(3, seq(5, 50, 5))) + 
   xlab("") + ylab("") + ggtern::zlab("") +
   labs(colour = ylab, size = 10) +
   theme_classic(40) + 

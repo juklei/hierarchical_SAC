@@ -27,8 +27,8 @@ model{
                            g_dbh*dbh[s]
     ## Beta diversity:
     bdiv[s] ~ dgamma(shape[s], rate[s])
-    shape[s] <- max(0.00001, mu_bdiv[s]^2/sigma_bdiv^2)
-    rate[s] <- max(0.00001, mu_bdiv[s]/sigma_bdiv^2)
+    shape[s] <- mu_bdiv[s]^2/sigma_bdiv^2
+    rate[s] <- mu_bdiv[s]/sigma_bdiv^2
     log(mu_bdiv[s]) <- b_icpt +                  
                        b_2tsp*tsp_2[s] + 
                        b_3tsp*tsp_3[s] +

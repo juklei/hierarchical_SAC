@@ -25,7 +25,7 @@ library(vegan)
 ## 2. Define or source functions used in this script ---------------------------
 
 ## Define seed to get the same sample in random processes (Reproducability):
-seed <- 10
+seed <- 999
 
 source("scripts/hsac_data_prepare.r")
 
@@ -75,7 +75,7 @@ data <- list(nrep = dim(sad)[2],
              dbh = scale(sad_tree$dbh)[, 1])
 
 ## Look at correlations:
-cor_list <- data[7:13]
+cor_list <- data[8:14]
 cor_list$tsp1 <- ifelse(sad_tree$nr_tsp == 1, 1, 0)
 cor_list$dec_quad <- data$dec^2
 cor_list$pine_quad <- data$pine^2
@@ -332,7 +332,7 @@ zc <- parCodaSamples(cl = cl, model = "hsac",
                                         "g_2tsp", "g_3tsp", "g_4tsp", 
                                         "sigma_bdiv", "b_icpt", "b_dbh",
                                         "b_2tsp", "b_3tsp", "b_4tsp"),
-                     n.iter = samples*8, thin = n.thin*8)
+                     n.iter = samples*4, thin = n.thin*4)
 
 capture.output(summary(zc), HPDinterval(zc, prob = 0.95)) %>% 
   write(., "results/parameters_hsac_collector_tsp.txt")
@@ -351,7 +351,7 @@ zc_pred_tsp <- parCodaSamples(cl = cl, model = "hsac",
                                                  "bdiv_3tsp", "bdiv_4tsp",
                                                  "gdiv_1tsp", "gdiv_2tsp", 
                                                  "gdiv_3tsp", "gdiv_4tsp"),
-                              n.iter = samples*2, thin = n.thin*2)
+                              n.iter = samples*4, thin = n.thin*4)
 
 pred_tsp <- as.data.frame(summary(zc_pred_tsp)$quantiles)
 pred_tsp$div_metric <- c("adiv", "bdiv", "gdiv")
@@ -360,22 +360,22 @@ pred_tsp$nr_tsp <- rep(1:4, 3)
 
 write.csv(pred_tsp, paste0("clean/hsac_collector_pred_tsp.csv"))
 
-zc_tsp_cv <- parCodaSamples(cl = cl, model = "hsac",
-                              variable.names = c("adiv_cv_21", "adiv_cv_31", 
-                                                 "adiv_cv_41", "adiv_cv_32",
-                                                 "adiv_cv_42", "adiv_cv_43",
-                                                 "bdiv_cv_21", "bdiv_cv_31", 
-                                                 "bdiv_cv_41", "bdiv_cv_32",
-                                                 "bdiv_cv_42", "bdiv_cv_43",
-                                                 "gdiv_cv_21", "gdiv_cv_31", 
-                                                 "gdiv_cv_41", "gdiv_cv_32",
-                                                 "gdiv_cv_42", "gdiv_cv_43"),
-                              n.iter = samples*2, thin = n.thin*2)
+zc_tsp_diff <- parCodaSamples(cl = cl, model = "hsac",
+                              variable.names = c("adiv_diff_21", "adiv_diff_31", 
+                                                 "adiv_diff_41", "adiv_diff_32",
+                                                 "adiv_diff_42", "adiv_diff_43",
+                                                 "bdiv_diff_21", "bdiv_diff_31", 
+                                                 "bdiv_diff_41", "bdiv_diff_32",
+                                                 "bdiv_diff_42", "bdiv_diff_43",
+                                                 "gdiv_diff_21", "gdiv_diff_31", 
+                                                 "gdiv_diff_41", "gdiv_diff_32",
+                                                 "gdiv_diff_42", "gdiv_diff_43"),
+                              n.iter = samples*4, thin = n.thin*4)
 
-## Extract probability that cverence between nr_tsp is bigger than 0:
-ANOVA_prob <- summary(zc_tsp_cv)$quantiles
+## Extract probability that difference between nr_tsp is bigger than 0:
+ANOVA_prob <- summary(zc_tsp_diff)$quantiles
 ANOVA_prob <- cbind(ANOVA_prob, 
-                    "ecdf" = sapply(as.data.frame(combine.mcmc(zc_tsp_cv)), 
+                    "ecdf" = sapply(as.data.frame(combine.mcmc(zc_tsp_diff)), 
                                     function(x) 1-ecdf(x)(0))) 
 write.csv(ANOVA_prob, "results/hsac_collector_tsp_ANOVA.csv")
 

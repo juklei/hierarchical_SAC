@@ -92,7 +92,7 @@ m.tsp <- "scripts/JAGS/hsac_collector_tsp_number.R"
 
 start <- Sys.time()
 
-n.adapt <- 5000; n.iter <- 15000; samples <- 20000; n.thin <- 16
+n.adapt <- 5000; n.iter <- 15000; samples <- 200000; n.thin <- 160
 
 ## 5a. Run m.raw for model testing and comparison ------------------------------
 
@@ -150,18 +150,12 @@ capture.output(raftery.diag(zc), heidel.diag(zc)) %>%
 ## Produce SAC from fitted model and compare with raw accumulation data:
 zc_val <- parCodaSamples(cl = cl, model = "hsac",
                          variable.names = "sim_obs",
-                         n.iter = 1000,
-                         thin = 10)
-zc_val_comb <- combine.mcmc(zc_val)
+                         n.iter = samples/40,
+                         thin = n.thin/40)
 
-sim <- as.data.table(melt(as.data.table(zc_val_comb), 
-                           measure.vars = dimnames(zc_val_comb)[[2]]))
-sim$variable <- gsub(",[[:digit:]]+,", ",", sim$variable)
-sim <- sim[, c("lower", "median", "upper") := quant_calc(value), by = "variable"]
-sim <- unique(sim[ , -2])
+sim <- as.data.frame(summary(zc_val)$quantiles)
 sim$ntree <- unlist(lapply(data$ntree, function(x) rep(1:x)))
 sim$site <- unlist(lapply(1:data$nsite, function(x) rep(x, data$ntree[x])))
-sim <- as.data.frame(sim)
 
 dev.off()
 
@@ -170,15 +164,12 @@ par(mfrow = c(3, 1))
 for(i in 1:data$nsite) {
   x = c(0, sim[sim$site == i, "ntree"])
   y = sim[sim$site == i, ]
-  plot(x, c(0, y$upper), xlab = "tree number", ylab = "species accumulation", 
+  plot(x, c(0, y$'97.5%'), xlab = "tree number", ylab = "species accumulation", 
        lty = "dashed", col = "red", typ = "l")
-  lines(x, c(0, y$median), col = "red", lwd = 4)
-  lines(x, c(0, y$lower), lty = "dashed", col = "red")
+  lines(x, c(0, y$'50%'), col = "red", lwd = 4)
+  lines(x, c(0, y$'2.5%'), lty = "dashed", col = "red")
   ## Real data:
-  boxplot(accumulation ~ ntree, 
-          data.frame("ntree" = as.factor(rep(1:(length(x)-1), dim(sad)[2])),
-                     "accumulation" = na.omit(as.vector(sad[,,i]))),
-          add = TRUE)
+  points(x = x[-1], y = na.omit(as.vector(sad[,data$select,i])))
 }
 
 dev.off()
@@ -203,8 +194,8 @@ write.csv(cv, "clean/hsac_collector_raw_replication_cv.csv")
 
 zc_pred <- parCodaSamples(cl = cl, model = "hsac",
                           variable.names = c("adiv_sel", "bdiv_sel", "gdiv_sel"),
-                          n.iter = samples*5,
-                          thin = n.thin*5)
+                          n.iter = samples,
+                          thin = n.thin)
 pred <- as.data.frame(summary(zc_pred)$quantiles)
 pred$mean <- summary(zc_pred)$statistics[, "Mean"]
 pred$div_metric <- gsub("_sel[[[:digit:]]+]", "", rownames(pred))

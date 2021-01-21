@@ -14,7 +14,6 @@ model{
     for(s in 1:nsite){
       for(i in 1:ntree[s]){
       obs_all[i,k,s] ~ dpois(lambda_obs[i,k,s])
-      sim_obs[i,k,s] ~ dpois(lambda_obs[i,k,s])
       lambda_obs[i,k,s] <- (gdiv[k,s]*i)/(bdiv[k,s]*u - u + i)
   }}}
   
@@ -61,6 +60,12 @@ model{
     bdiv_sel[s] <- bdiv[select, s]
     adiv_sel[s] <- adiv[select, s]
   }
+  
+  ## Simulate observation values:
+  for(s in 1:nsite){
+    for(i in 1:ntree[s]){
+      sim_obs[i,select,s] ~ dpois(lambda_obs[i,select,s])
+  }}
   
 }
 

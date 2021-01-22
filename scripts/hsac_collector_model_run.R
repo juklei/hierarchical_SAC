@@ -27,8 +27,6 @@ library(vegan)
 ## Define seed to get the same sample in random processes (Reproducability):
 seed <- 999
 
-source("scripts/hsac_data_prepare.r")
-
 dir.create("results")
 dir.create("figures")
 

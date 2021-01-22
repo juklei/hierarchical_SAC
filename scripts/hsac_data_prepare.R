@@ -12,9 +12,15 @@ rm(list = ls())
 library(data.table)
 library(vegan)
 
+## Define seed to get the same sample in random processes (Reproducability):
+seed <- 999
+
+source("scripts/hsac_data_create_function.r")
+
 ## 2. Load and explore data ----------------------------------------------------
 
-l_obs <- as.data.table(read.csv("data/Data_lavar_Almunge15_March_2019.csv"))
+## From 10.5281/zenodo.3899847:
+l_obs <- as.data.table(read.csv("data/epiphytic_lichen_data.csv"))
 
 ## Remove plot_119, because spruce plantation:
 l_obs <- l_obs[l_obs$Plot.no. != 119, ]
@@ -69,46 +75,20 @@ colnames(lo_freq_out) <- as.character(lo_freq$Tree.species)
 ## 5. Calculate estimated gamma diversity for all plots based on 
 ##    vegan::specpool():
 
-gamma_est <- lo_red[, specpool(.SD), by = "plot"]
+lo_spec <- lo_red[, - 2] ## Remove Tree.no!
+gamma_est <- lo_spec[, specpool(.SD), by = "plot"]
 
 ## 6. Create the data set which is needed to fit the accumultation curve and 
 ##    produce forest data per plot level with the according order
 
 ## Split into a list of data frames per plot:
-lo_list <- split(lo_red, by = "plot", keep.by = FALSE)
+lo_list <- split(lo_spec, by = "plot", keep.by = FALSE)
 
-## Turn the elements into matrices without the tree number:
-lo_list <- lapply(lo_list, function(x) as.matrix(x[, -1]))
-
-## Delete all species columns which have never been seen on a plot:
-lo_list <- lapply(lo_list, function(x) x[, colSums(x) != 0])
-
-## How many shuffelings?
-S <- 100
-
-## Define the function:
-sac_create <- function(x) {
-  
-  out <- matrix(NA, max(l_obs$Tree.no), S)
-  for(i in 1:S) {
-    ## Select random rows in x:
-    set.seed(seed) ## Is defined in the hsac_model_run.r
-    D <- x[sample(nrow(x)), ]
-    for(j in 1:ncol(D)) {D[min(which(D[, j] == 1)):nrow(D), j] <- 1}
-    out[1:nrow(D), i] <- rowSums(D)
-  }
-  return(out)
-
-}
-
-## Apply the function:
-l_sac <- lapply(lo_list, sac_create)
+## Create the species accumulation data set for all plots:
+sad <- sac.create(data = lo_list, n_permutation = 10, seed = seed)
 
 ## Store order of the list elements for ordering forest data:
-plot_order <- names(l_sac)
-
-## Turn l_sac into an array:
-sad <- array(unlist(l_sac), dim = c(max(lengths(l_sac)/S), S, length(l_sac)))
+plot_order <- dimnames(sad[[3]])
 
 ## Make a data frame with the tree data with the same plot order as "sad":
 sad_tree <- as.data.table(l_obs[, c(1, 8:9)])
@@ -121,7 +101,7 @@ sad_tree <- sad_tree[, list("pine" = sum(Tree.species == "Ps")/nrow(.SD),
 sad_tree$dec <- 1-(sad_tree$pine + sad_tree$spruce)
 
 ## Check if the order of l_sac and sad_tree are the same:
-all(sad_tree$plot == names(l_sac))
+all(sad_tree$plot == names(sad))
 
 ## 7. Store the data used in the jags models and in the figures script: --------
 
